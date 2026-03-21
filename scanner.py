@@ -1,24 +1,31 @@
 """
-scanner.py — WiFi/LAN scanner using Windows ARP table.
+scanner.py — WiFi/LAN scanner using ARP table.
 Runs 'arp -a' and parses all active MAC addresses.
+Works on both Windows and Linux.
 """
 import subprocess
 import re
+import platform
+
+
+def _arp_kwargs():
+    """Return platform-specific subprocess kwargs."""
+    kwargs = {"capture_output": True, "text": True}
+    if platform.system() == "Windows":
+        kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
+    return kwargs
 
 
 def scan_network():
     """
     Run 'arp -a' and return a set of all active MAC addresses on the LAN.
     MACs are normalized to lowercase colon-separated format: 'aa:bb:cc:dd:ee:ff'
-    Works on Windows 10/11.
     """
     try:
         result = subprocess.run(
             ["arp", "-a"],
-            capture_output=True,
-            text=True,
             timeout=10,
-            creationflags=0x08000000  # CREATE_NO_WINDOW on Windows
+            **_arp_kwargs()
         )
         return _parse_macs(result.stdout)
     except Exception as e:
@@ -36,10 +43,8 @@ def get_mac_for_ip(ip):
     try:
         result = subprocess.run(
             ["arp", "-a", ip],
-            capture_output=True,
-            text=True,
             timeout=5,
-            creationflags=0x08000000
+            **_arp_kwargs()
         )
         macs = _extract_macs(result.stdout)
         return macs[0] if macs else None

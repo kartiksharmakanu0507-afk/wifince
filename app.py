@@ -408,9 +408,11 @@ def export_txt(session_id):
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Always init DB and seed on import (needed for gunicorn)
+init_db()
+seed_all()
+
 if __name__ == "__main__":
-    init_db()
-    seed_all()
     lan_ip = get_lan_ip()
     print("\n" + "=" * 50)
     print("  WIFINCE is running!")
