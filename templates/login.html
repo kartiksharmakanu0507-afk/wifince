@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WIFINCE — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .login-wrap {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .login-logo { text-align: center; margin-bottom: 36px; }
+    .login-logo .logo { font-size: 2.4rem; }
+    .login-logo .subtitle { margin-top: 6px; }
+
+    /* Tab switcher */
+    .tab-bar {
+      display: flex; margin-bottom: 0;
+      border: 1px solid var(--border);
+      width: 100%; max-width: 440px;
+    }
+    .tab-btn {
+      flex: 1; padding: 12px;
+      background: transparent; border: none; cursor: pointer;
+      font-family: var(--ff-head); font-size: .78rem; font-weight: 700;
+      letter-spacing: .15em; color: var(--text-dim);
+      transition: all .2s; border-bottom: 2px solid transparent;
+    }
+    .tab-btn.active { color: var(--purple-li); border-bottom-color: var(--purple); background: var(--purple-lo); }
+    .tab-btn.active.student { color: var(--cyan); border-bottom-color: var(--cyan); background: var(--cyan-lo); }
+
+    /* Login card */
+    .login-card {
+      width: 100%; max-width: 440px;
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-top: none; padding: 32px;
+      backdrop-filter: blur(14px);
+      display: none;
+    }
+    .login-card.active { display: block; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+    .field label { font-size: .66rem; letter-spacing: .15em; color: var(--text-dim); }
+    .field input {
+      background: rgba(124,58,237,.08); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--ff-mono); font-size: .95rem;
+      padding: 10px 14px; outline: none; transition: all .2s; width: 100%;
+    }
+    .field input:focus { border-color: var(--purple); box-shadow: var(--glow-p); background: var(--purple-lo); }
+    .field input.cyan:focus { border-color: var(--cyan); box-shadow: var(--glow-c); background: var(--cyan-lo); }
+
+    .btn-login {
+      width: 100%; padding: 12px;
+      background: transparent; border: 1px solid var(--purple);
+      color: var(--purple-li); font-family: var(--ff-head); font-size: .85rem; font-weight: 700;
+      letter-spacing: .15em; cursor: pointer; transition: all .2s;
+      position: relative; overflow: hidden;
+    }
+    .btn-login::before {
+      content:''; position:absolute; inset:0;
+      background: var(--purple); transform:scaleX(0);
+      transform-origin:left; transition:transform .2s; z-index:-1;
+    }
+    .btn-login:hover { color:#fff; box-shadow: var(--glow-p); }
+    .btn-login:hover::before { transform:scaleX(1); }
+    .btn-login.cyan-btn { border-color: var(--cyan); color: var(--cyan); }
+    .btn-login.cyan-btn::before { background: var(--cyan); }
+    .btn-login.cyan-btn:hover { color: #0a0a1a; box-shadow: var(--glow-c); }
+
+    .err-msg {
+      color: var(--red); font-size: .78rem; margin-top: 12px;
+      text-align: center; min-height: 18px;
+    }
+
+    .hint-box {
+      margin-top: 18px; padding: 12px 14px;
+      border: 1px solid rgba(124,58,237,.25); background: rgba(124,58,237,.07);
+      font-size: .72rem; color: var(--text-dim); line-height: 1.6;
+    }
+    .hint-box.cyan { border-color: rgba(34,211,238,.25); background: rgba(34,211,238,.07); }
+    .hint-box b { color: var(--purple-li); }
+    .hint-box.cyan b { color: var(--cyan); }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="scanline"></div>
+
+  <div class="login-wrap">
+    <!-- Logo -->
+    <div class="login-logo">
+      <span class="logo-icon">⌬</span>
+      <h1 class="logo">WIFINCE</h1>
+      <p class="subtitle">WiFi Attendance Intelligence System</p>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active"         id="tab-teacher" onclick="switchTab('teacher')">👨‍🏫 TEACHER</button>
+      <button class="tab-btn student"        id="tab-student" onclick="switchTab('student')">👨‍🎓 STUDENT</button>
+    </div>
+
+    <!-- Teacher login -->
+    <div class="login-card active" id="card-teacher">
+      <div class="field">
+        <label>TEACHER ID</label>
+        <input type="text" id="teacher-id" placeholder="teacher" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>PASSWORD</label>
+        <input type="password" id="teacher-pwd" placeholder="••••••••"
+               onkeydown="if(event.key==='Enter') teacherLogin()">
+      </div>
+      <button class="btn-login" onclick="teacherLogin()">▶ LOGIN AS TEACHER</button>
+      <div class="err-msg" id="teacher-err"></div>
+      <div class="hint-box">
+        Default — <b>ID:</b> teacher &nbsp;|&nbsp; <b>Password:</b> wifince123
+      </div>
+    </div>
+
+    <!-- Student login -->
+    <div class="login-card" id="card-student">
+      <div class="field">
+        <label>YOUR ROLL NUMBER</label>
+        <input type="text" id="student-roll" class="cyan" placeholder="JIETCSE088"
+               autocomplete="off" style="text-transform:uppercase"
+               oninput="this.value=this.value.toUpperCase()"
+               onkeydown="if(event.key==='Enter') studentLogin()">
+      </div>
+      <button class="btn-login cyan-btn" onclick="studentLogin()">▶ MARK MY ATTENDANCE</button>
+      <div class="err-msg" id="student-err"></div>
+      <div class="hint-box cyan">
+        Make sure you are connected to the <b>teacher's hotspot</b>.<br>
+        Enter your roll number — your device will be auto-detected.
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // Pre-select tab from URL param ?role=student
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("role") === "student") switchTab("student");
+
+    function switchTab(tab) {
+      document.getElementById("card-teacher").classList.toggle("active", tab === "teacher");
+      document.getElementById("card-student").classList.toggle("active", tab === "student");
+      document.getElementById("tab-teacher").classList.toggle("active", tab === "teacher");
+      document.getElementById("tab-student").classList.toggle("active", tab === "student");
+      document.getElementById("tab-teacher").classList.toggle("student", false);
+      document.getElementById("tab-student").classList.toggle("student", tab === "student");
+    }
+
+    async function teacherLogin() {
+      const tid = document.getElementById("teacher-id").value.trim();
+      const pwd = document.getElementById("teacher-pwd").value.trim();
+      const err = document.getElementById("teacher-err");
+      err.textContent = "";
+      if (!tid || !pwd) { err.textContent = "Fill in both fields."; return; }
+
+      const btn = document.querySelector("#card-teacher .btn-login");
+      btn.textContent = "LOGGING IN…"; btn.disabled = true;
+
+      try {
+        const res  = await fetch("/login", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({role: "teacher", teacher_id: tid, password: pwd})
+        });
+        const data = await res.json();
+        if (data.success) { window.location.href = data.redirect; }
+        else { err.textContent = data.error || "Login failed."; btn.textContent = "▶ LOGIN AS TEACHER"; btn.disabled = false; }
+      } catch(e) {
+        err.textContent = "Network error.";
+        btn.textContent = "▶ LOGIN AS TEACHER"; btn.disabled = false;
+      }
+    }
+
+    async function studentLogin() {
+      const roll = document.getElementById("student-roll").value.trim().toUpperCase();
+      const err  = document.getElementById("student-err");
+      err.textContent = "";
+      if (!roll) { err.textContent = "Enter your roll number."; return; }
+
+      const btn = document.querySelector("#card-student .btn-login");
+      btn.textContent = "DETECTING…"; btn.disabled = true;
+
+      try {
+        const res  = await fetch("/login", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({role: "student", roll})
+        });
+        const data = await res.json();
+        if (data.success) { window.location.href = data.redirect; }
+        else { err.textContent = data.error || "Roll number not found."; btn.textContent = "▶ MARK MY ATTENDANCE"; btn.disabled = false; }
+      } catch(e) {
+        err.textContent = "Network error.";
+        btn.textContent = "▶ MARK MY ATTENDANCE"; btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

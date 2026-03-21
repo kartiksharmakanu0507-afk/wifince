@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WIFINCE — WiFi Attendance System</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07071a;--panel:#0c0c28;--panel-dark:#08081a;
+  --pink:#ff00ff;--pink-dim:rgba(255,0,255,0.35);
+  --cyan:#00d4ff;--cyan-dim:rgba(0,212,255,0.35);
+  --blue:#0055ff;--purple:#8800ff;--purple-light:#aa44ff;
+  --green:#00ff88;--red:#ff2244;--yellow:#ffcc00;
+  --text:#c0c0f0;--text-bright:#ffffff;--text-dim:#5858a0;--text-cyan:#66eeff;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Share Tech Mono',monospace;font-size:11px;position:relative;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,80,255,0.04)1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,80,255,0.04)1px,transparent 1px);
+  background-size:40px 40px;
+}
+@keyframes scanline{from{top:-3px}to{top:100vh}}
+.scanline{
+  position:fixed;left:0;top:0;width:100%;height:3px;z-index:9999;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(0,212,255,0.15) 30%,rgba(255,0,255,0.1) 60%,transparent);
+  animation:scanline 7s linear infinite;
+}
+.dashboard{
+  display:grid;grid-template-columns:272px 1fr 314px;gap:6px;
+  padding:6px;height:100vh;position:relative;z-index:1;
+}
+.col{display:flex;flex-direction:column;gap:6px;overflow:hidden;min-height:0}
+@keyframes bpulse{
+  0%,100%{box-shadow:0 0 8px rgba(255,0,255,0.18),inset 0 0 15px rgba(80,0,180,0.04)}
+  50%{box-shadow:0 0 16px rgba(255,0,255,0.32),inset 0 0 20px rgba(80,0,180,0.08)}
+}
+.panel{
+  background:var(--panel);border:1px solid rgba(130,0,220,0.45);
+  position:relative;padding:8px;overflow:hidden;
+  animation:bpulse 3.5s ease-in-out infinite;
+}
+.corner{position:absolute;width:14px;height:14px;z-index:3}
+.ctl{top:-1px;left:-1px;border-top:2px solid var(--pink);border-left:2px solid var(--pink)}
+.ctr{top:-1px;right:-1px;border-top:2px solid var(--cyan);border-right:2px solid var(--cyan)}
+.cbl{bottom:-1px;left:-1px;border-bottom:2px solid var(--cyan);border-left:2px solid var(--cyan)}
+.cbr{bottom:-1px;right:-1px;border-bottom:2px solid var(--pink);border-right:2px solid var(--pink)}
+.ph{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(255,0,255,0.18);
+}
+.pt{
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--text-bright);letter-spacing:2px;text-shadow:0 0 10px var(--pink);
+}
+.ps{font-size:8px;color:var(--text-dim);letter-spacing:1px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.blink{animation:blink 1s step-start infinite}
+.blink-slow{animation:blink 2s step-start infinite}
+.badge-active{
+  font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;
+  color:var(--pink);text-shadow:0 0 10px var(--pink),0 0 20px var(--pink);letter-spacing:2px;
+}
+.neon-p{color:var(--pink);text-shadow:0 0 8px var(--pink)}
+.neon-c{color:var(--cyan);text-shadow:0 0 8px var(--cyan)}
+.neon-g{color:var(--green);text-shadow:0 0 8px var(--green)}
+.neon-r{color:var(--red);text-shadow:0 0 8px var(--red)}
+.sep{height:1px;background:linear-gradient(90deg,transparent,rgba(255,0,255,0.28),transparent);margin:5px 0}
+.scroll-area{overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,0,255,0.28) transparent}
+.scroll-area::-webkit-scrollbar{width:3px}
+.scroll-area::-webkit-scrollbar-thumb{background:rgba(255,0,255,0.28)}
+
+/* ===== LEFT: SYS WIN ===== */
+.syswin-bar{
+  height:3px;background:linear-gradient(90deg,transparent,var(--pink),var(--cyan),transparent);
+  opacity:0.7;margin:4px 0;
+}
+.syswin-info{display:grid;grid-template-columns:1fr 1fr;gap:3px;font-size:8px;margin:5px 0}
+.syswin-item{
+  background:rgba(0,0,0,0.35);padding:2px 5px;
+  border-left:2px solid rgba(255,0,255,0.3);color:var(--text-dim);
+}
+.syswin-item span{color:var(--text-cyan)}
+.syswin-nav{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
+.syswin-nav button{
+  font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--text-cyan);
+  background:rgba(255,0,255,0.08);border:1px solid rgba(255,0,255,0.28);
+  padding:2px 5px;cursor:pointer;transition:all 0.2s;letter-spacing:1px;
+}
+.syswin-nav button:hover{background:rgba(255,0,255,0.2);box-shadow:0 0 8px rgba(255,0,255,0.3)}
+.rst-btn{
+  font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);
+  background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.35);
+  padding:2px 8px;cursor:pointer;transition:all 0.2s;margin-left:auto;
+}
+.rst-btn:hover{background:rgba(0,212,255,0.18);box-shadow:0 0 10px rgba(0,212,255,0.3)}
+
+/* ===== LEFT: NET STATUS ===== */
+.net-main{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.ip-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;margin-bottom:6px}
+.ip-cell{
+  font-size:8px;color:var(--text-cyan);text-align:center;
+  background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.18);padding:2px 3px;
+}
+.net-details{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px}
+.nd{font-size:7px;color:var(--text-dim)}
+.nd .nl{color:var(--text-bright);font-size:7px;margin-bottom:2px;text-transform:uppercase;letter-spacing:1px}
+.nd .nv{color:var(--text-cyan);font-size:7px}
+.net-bars{display:flex;gap:6px;margin-top:5px;font-size:7px;color:var(--text-dim)}
+
+/* ===== LEFT: DEVICES ===== */
+.dev-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-size:8px}
+.dev-list{font-size:8px;max-height:70px}
+.dev-row{
+  display:flex;align-items:center;gap:5px;padding:2px 0;
+  border-bottom:1px solid rgba(255,0,255,0.08);font-size:7px;
+}
+.dev-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:5px}
+.mbox{background:rgba(0,0,0,0.3);border:1px solid rgba(100,0,180,0.28);padding:3px}
+.mbox .ml{font-size:6px;color:var(--text-dim)}
+.mbox .mv{font-size:10px;color:var(--text-cyan);font-family:'Orbitron',sans-serif}
+.dev-footer{
+  display:flex;align-items:center;justify-content:space-between;margin-top:5px;
+  padding:3px;background:rgba(255,0,255,0.04);border:1px solid rgba(255,0,255,0.12);font-size:7px;
+}
+
+/* ===== LEFT: GAUGE ===== */
+.gauge-wrap{display:flex;align-items:center;gap:8px}
+.donut{position:relative;width:78px;height:78px;flex-shrink:0}
+.donut svg{width:100%;height:100%;transform:rotate(-90deg)}
+.donut-inner{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;
+}
+.donut-pct{font-size:15px;font-weight:900;color:var(--pink);text-shadow:0 0 10px var(--pink);line-height:1}
+.donut-lbl{font-size:6px;color:var(--text-dim);letter-spacing:1px}
+.gdata{flex:1;font-size:8px}
+.grow{display:flex;justify-content:space-between;margin-bottom:3px}
+.timer{
+  font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
+  color:var(--cyan);text-shadow:0 0 10px var(--cyan);text-align:center;
+  padding:4px;border:1px solid rgba(0,212,255,0.28);
+  background:rgba(0,212,255,0.04);margin-top:5px;letter-spacing:2px;
+}
+
+/* ===== CENTER: TOOLBAR ===== */
+.toolbar{
+  flex:0 0 auto;background:rgba(0,0,0,0.65);
+  border:1px solid rgba(0,212,255,0.28);padding:5px 12px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.tb-icons{display:flex;gap:8px;align-items:center}
+.tb-icon{
+  width:24px;height:24px;border:1px solid rgba(0,212,255,0.35);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--cyan);cursor:pointer;transition:all 0.2s;
+}
+.tb-icon:hover,.tb-icon.on{
+  background:rgba(0,212,255,0.18);border-color:var(--cyan);box-shadow:0 0 10px var(--cyan);
+}
+
+/* ===== CENTER: CORE PANEL ===== */
+.core-panel{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border:1px solid rgba(0,212,255,0.35);position:relative;overflow:hidden;
+  background:radial-gradient(ellipse at center,rgba(35,0,90,0.75) 0%,rgba(7,7,26,0.9) 70%);
+}
+.core-title{
+  font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:4px;
+  color:var(--text-dim);margin-bottom:12px;text-align:center;
+}
+.rings{position:relative;width:210px;height:210px;display:flex;align-items:center;justify-content:center}
+@keyframes rr{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes rl{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
+.ring{position:absolute;border-radius:50%;border:2px solid transparent}
+.r1{
+  width:210px;height:210px;
+  border-top-color:var(--pink);border-right-color:rgba(255,0,255,0.25);
+  animation:rr 3.2s linear infinite;filter:drop-shadow(0 0 8px var(--pink));
+}
+.r2{
+  width:178px;height:178px;
+  border-right-color:var(--cyan);border-bottom-color:rgba(0,212,255,0.25);
+  animation:rl 2.1s linear infinite;filter:drop-shadow(0 0 8px var(--cyan));
+}
+.r3{
+  width:148px;height:148px;
+  border-top-color:var(--purple-light);border-left-color:rgba(170,68,255,0.2);
+  animation:rr 4.5s linear infinite;filter:drop-shadow(0 0 6px var(--purple-light));
+}
+.r4{
+  width:118px;height:118px;
+  border-top-color:rgba(255,0,255,0.5);border-bottom-color:rgba(0,212,255,0.5);
+  animation:rl 1.6s linear infinite;
+}
+.oct{
+  position:absolute;width:240px;height:240px;border:1px solid rgba(0,212,255,0.15);
+  clip-path:polygon(15% 0%,85% 0%,100% 15%,100% 85%,85% 100%,15% 100%,0% 85%,0% 15%);
+}
+@keyframes pglow{
+  0%,100%{box-shadow:0 0 20px rgba(255,0,255,0.4),inset 0 0 15px rgba(255,0,255,0.1)}
+  50%{box-shadow:0 0 40px rgba(255,0,255,0.65),0 0 60px rgba(100,0,200,0.35),inset 0 0 20px rgba(255,0,255,0.15)}
+}
+.core-center{
+  position:absolute;width:82px;height:82px;border-radius:50%;
+  background:radial-gradient(circle,rgba(80,0,200,0.6) 0%,rgba(20,0,60,0.8) 60%,transparent 100%);
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid rgba(255,0,255,0.5);animation:pglow 2.2s ease-in-out infinite;
+}
+.core-icon{font-size:32px;filter:drop-shadow(0 0 12px var(--pink))}
+.core-side{
+  position:absolute;top:50%;transform:translateY(-50%);
+  font-size:7px;color:var(--text-dim);display:flex;flex-direction:column;gap:7px;
+}
+.core-side.left{left:10px}
+.core-side.right{right:10px;text-align:right}
+.core-dl{
+  position:absolute;left:8px;right:8px;height:1px;
+  background:rgba(0,212,255,0.08);
+}
+.core-cca{position:absolute;width:28px;height:28px}
+.core-cca.tl{top:0;left:0;border-top:3px solid var(--pink);border-left:3px solid var(--pink)}
+.core-cca.tr{top:0;right:0;border-top:3px solid var(--cyan);border-right:3px solid var(--cyan)}
+.core-cca.bl{bottom:0;left:0;border-bottom:3px solid var(--cyan);border-left:3px solid var(--cyan)}
+.core-cca.br{bottom:0;right:0;border-bottom:3px solid var(--pink);border-right:3px solid var(--pink)}
+.scan-btn{
+  font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:3px;
+  color:var(--cyan);border:1px solid var(--cyan);background:rgba(0,212,255,0.07);
+  padding:6px 22px;cursor:pointer;transition:all 0.3s;
+  text-shadow:0 0 8px var(--cyan);box-shadow:0 0 10px rgba(0,212,255,0.18);
+  margin-top:14px;
+}
+.scan-btn:hover{background:rgba(0,212,255,0.18);box-shadow:0 0 22px rgba(0,212,255,0.4)}
+
+/* ===== CENTER: DETECTION OVERLAY ===== */
+.core-overlay{
+  position:absolute;inset:0;z-index:10;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at center,rgba(10,0,40,0.95) 0%,rgba(7,7,26,0.98) 70%);
+  transition:opacity 0.4s;
+}
+.core-overlay.show{display:flex}
+.hotspot-msg{
+  font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;
+  color:var(--cyan);text-shadow:0 0 15px var(--cyan),0 0 30px rgba(0,212,255,0.4);
+  letter-spacing:3px;text-align:center;line-height:1.8;
+}
+.hotspot-msg .wifi-big{font-size:50px;display:block;margin-bottom:10px;filter:drop-shadow(0 0 15px var(--cyan))}
+.hotspot-sub{
+  font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-top:8px;
+}
+@keyframes pulse-hotspot{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:0.6;transform:scale(1.05)}
+}
+.hotspot-msg.pulse{animation:pulse-hotspot 1.5s ease-in-out infinite}
+
+/* Detection card */
+.detect-card{
+  display:none;flex-direction:column;align-items:center;gap:6px;
+  padding:16px 28px;border:2px solid var(--cyan);
+  background:rgba(0,20,50,0.7);position:relative;
+  box-shadow:0 0 30px rgba(0,212,255,0.3),inset 0 0 20px rgba(0,212,255,0.05);
+}
+.detect-card.show{display:flex}
+.detect-card .corner{width:16px;height:16px}
+.detect-label{font-size:7px;color:var(--text-dim);letter-spacing:3px;text-transform:uppercase}
+.detect-name{
+  font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;
+  color:var(--text-bright);text-shadow:0 0 10px rgba(255,255,255,0.3);letter-spacing:2px;
+}
+.detect-roll{
+  font-family:'Orbitron',sans-serif;font-size:11px;
+  color:var(--cyan);text-shadow:0 0 8px var(--cyan);letter-spacing:3px;
+}
+.detect-row{display:flex;gap:16px;margin-top:4px}
+.detect-field{text-align:center}
+.detect-field .df-label{font-size:6px;color:var(--text-dim);letter-spacing:2px;margin-bottom:2px}
+.detect-field .df-val{
+  font-family:'Share Tech Mono',monospace;font-size:10px;
+  color:var(--pink);text-shadow:0 0 6px var(--pink);
+}
+@keyframes card-in{
+  from{opacity:0;transform:scale(0.8) translateY(20px)}
+  to{opacity:1;transform:scale(1) translateY(0)}
+}
+.detect-card.show{animation:card-in 0.35s ease-out}
+
+/* Big tick animation */
+.big-tick{
+  display:none;flex-direction:column;align-items:center;gap:8px;
+}
+.big-tick.show{display:flex}
+.tick-circle{
+  width:70px;height:70px;border-radius:50%;
+  border:3px solid var(--green);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 25px rgba(0,255,136,0.5),0 0 50px rgba(0,255,136,0.2),
+    inset 0 0 15px rgba(0,255,136,0.1);
+}
+@keyframes tick-pop{
+  0%{transform:scale(0);opacity:0}
+  60%{transform:scale(1.2);opacity:1}
+  100%{transform:scale(1);opacity:1}
+}
+.tick-circle.pop{animation:tick-pop 0.5s ease-out}
+.tick-circle svg{width:36px;height:36px}
+.tick-circle svg path{
+  stroke:var(--green);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:40;stroke-dashoffset:40;
+}
+.tick-circle.pop svg path{animation:tick-draw 0.4s 0.2s ease-out forwards}
+@keyframes tick-draw{to{stroke-dashoffset:0}}
+.tick-status{
+  font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:3px;
+}
+.tick-status.present{color:var(--green);text-shadow:0 0 10px var(--green)}
+.tick-status.absent{color:var(--red);text-shadow:0 0 10px var(--red)}
+
+/* Absent tick (red X) */
+.tick-circle.absent-x{
+  border-color:var(--red);
+  box-shadow:0 0 25px rgba(255,34,68,0.5),0 0 50px rgba(255,34,68,0.2),
+    inset 0 0 15px rgba(255,34,68,0.1);
+}
+.tick-circle.absent-x svg path{stroke:var(--red)}
+
+/* Scan complete big overlay */
+.scan-done{
+  display:none;flex-direction:column;align-items:center;gap:10px;
+}
+.scan-done.show{display:flex}
+.scan-done-count{
+  font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;
+  color:var(--green);text-shadow:0 0 20px var(--green),0 0 40px rgba(0,255,136,0.3);
+}
+
+/* ===== CLICKABLE / INTERACTIVE ===== */
+.clickable{cursor:pointer;transition:all 0.25s ease}
+.clickable:hover{filter:brightness(1.3);transform:scale(1.03)}
+.clickable:active{transform:scale(0.97)}
+
+/* Tooltip popup */
+.tippy{
+  position:fixed;z-index:10001;padding:8px 14px;
+  background:rgba(5,5,25,0.96);border:1px solid var(--cyan);
+  color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:10px;
+  box-shadow:0 0 18px rgba(0,212,255,0.4);pointer-events:none;
+  opacity:0;transition:opacity 0.2s;white-space:pre-line;max-width:220px;
+}
+.tippy.show{opacity:1}
+.tippy .tippy-title{
+  font-family:'Orbitron',sans-serif;font-size:8px;color:var(--pink);
+  letter-spacing:2px;margin-bottom:4px;text-shadow:0 0 6px var(--pink);
+}
+.tippy .tippy-val{color:var(--text-bright);font-size:11px}
+
+/* Clickable chart bars */
+.cbar.clickable:hover{
+  box-shadow:0 0 8px var(--pink),0 0 16px rgba(255,0,255,0.3);
+  filter:brightness(1.6);
+}
+.cbar.active{
+  background:var(--cyan)!important;
+  box-shadow:0 0 10px var(--cyan);
+}
+
+/* Clickable metric boxes */
+.mbox.clickable:hover{
+  border-color:var(--cyan);box-shadow:0 0 10px rgba(0,212,255,0.3);
+}
+.mbox.clickable:active .mv{color:var(--pink)}
+
+/* Clickable gauge */
+.donut.clickable:hover{filter:drop-shadow(0 0 12px var(--pink))}
+.cg.clickable:hover{filter:drop-shadow(0 0 10px var(--cyan))}
+
+/* Clickable student entries */
+.se.clickable:hover{
+  background:rgba(0,212,255,0.1)!important;
+  border-left-color:var(--cyan)!important;
+  transform:translateX(3px);
+}
+
+/* Clickable data bar segments */
+.dbs.clickable:hover{
+  transform:scaleY(1.6);box-shadow:0 0 6px currentColor;
+}
+
+/* Clickable rbs grid */
+.rbs.clickable:hover{
+  box-shadow:0 0 8px var(--cyan);transform:scale(1.3);
+}
+.rbs.clickable:active{background:var(--cyan)!important;box-shadow:0 0 10px var(--cyan)}
+
+/* Clickable ip cells */
+.ip-cell.clickable:hover{
+  border-color:var(--pink);box-shadow:0 0 8px rgba(255,0,255,0.3);
+  color:var(--pink);
+}
+
+/* Panel detail popup */
+.detail-popup{
+  position:fixed;z-index:10002;
+  background:rgba(8,8,28,0.97);border:2px solid var(--cyan);
+  padding:14px;min-width:200px;box-shadow:0 0 30px rgba(0,212,255,0.4);
+  display:none;
+}
+.detail-popup.show{display:block}
+.detail-popup .dp-title{
+  font-family:'Orbitron',sans-serif;font-size:10px;color:var(--cyan);
+  letter-spacing:2px;margin-bottom:8px;text-shadow:0 0 8px var(--cyan);
+}
+.detail-popup .dp-close{
+  position:absolute;top:5px;right:8px;color:var(--pink);cursor:pointer;
+  font-size:14px;transition:all 0.2s;
+}
+.detail-popup .dp-close:hover{text-shadow:0 0 8px var(--pink);transform:scale(1.2)}
+.detail-popup .dp-row{
+  display:flex;justify-content:space-between;margin-bottom:4px;font-size:9px;
+}
+.detail-popup .dp-row .dp-k{color:var(--text-dim)}
+.detail-popup .dp-row .dp-v{color:var(--text-bright)}
+
+/* Expand animation */
+@keyframes pop-in{
+  from{opacity:0;transform:scale(0.85)}
+  to{opacity:1;transform:scale(1)}
+}
+.detail-popup.show{animation:pop-in 0.25s ease-out}
+
+/* ===== FLOWCHART ===== */
+.flowchart-toggle{
+  display:flex;align-items:center;padding:4px 6px;
+  background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.2);
+  margin-top:2px;transition:all 0.3s;
+}
+.flowchart-toggle:hover{
+  background:rgba(0,212,255,0.1);border-color:var(--cyan);
+  box-shadow:0 0 10px rgba(0,212,255,0.2);
+}
+.flowchart-container{
+  max-height:0;overflow:hidden;transition:max-height 0.5s ease,opacity 0.4s ease;
+  opacity:0;margin-top:3px;
+}
+.flowchart-container.open{max-height:220px;opacity:1}
+.flowchart-svg{width:100%;height:auto;display:block}
+
+/* FC lines */
+.fc-line{stroke:rgba(0,212,255,0.4);stroke-width:1.5;stroke-dasharray:4 3}
+.fc-arrow{fill:rgba(0,212,255,0.6)}
+.fc-arrow-green{fill:rgba(0,255,136,0.6)}
+.fc-arrow-red{fill:rgba(255,34,68,0.6)}
+
+/* FC nodes */
+.fc-node{
+  fill:rgba(12,12,40,0.9);stroke-width:1.5;cursor:pointer;
+  transition:all 0.25s;
+}
+.fc-node:hover{filter:brightness(1.5);stroke-width:2.5}
+.fc-node-start{stroke:#00d4ff}
+.fc-node-scan{stroke:#ff00ff}
+.fc-node-detect{stroke:#aa44ff}
+.fc-node-decision{stroke:#ffcc00}
+.fc-node-present{stroke:#00ff88;fill:rgba(0,255,136,0.08)}
+.fc-node-absent{stroke:#ff2244;fill:rgba(255,34,68,0.08)}
+
+/* FC text */
+.fc-text{
+  font-family:'Orbitron',sans-serif;font-size:7px;fill:#c0c0f0;
+  text-anchor:middle;pointer-events:none;letter-spacing:1px;
+}
+.fc-text-sm{font-size:7px;fill:#ffcc00;font-weight:700}
+.fc-text-green{fill:#00ff88}
+.fc-text-red{fill:#ff2244}
+.fc-label{
+  font-family:'Orbitron',sans-serif;font-size:7px;
+  text-anchor:middle;pointer-events:none;font-weight:700;
+}
+
+/* FC node glow on hover */
+.fc-node-start:hover{filter:drop-shadow(0 0 6px #00d4ff)}
+.fc-node-scan:hover{filter:drop-shadow(0 0 6px #ff00ff)}
+.fc-node-detect:hover{filter:drop-shadow(0 0 6px #aa44ff)}
+.fc-node-decision:hover{filter:drop-shadow(0 0 6px #ffcc00)}
+.fc-node-present:hover{filter:drop-shadow(0 0 8px #00ff88)}
+.fc-node-absent:hover{filter:drop-shadow(0 0 8px #ff2244)}
+
+/* ===== CENTER: STATUS PANEL ===== */
+.stat-hdr{display:flex;align-items:center;gap:8px;margin-bottom:7px;padding-bottom:4px;border-bottom:1px solid rgba(0,212,255,0.18)}
+.stat-check{
+  width:18px;height:18px;border-radius:50%;background:rgba(0,255,136,0.15);
+  border:1px solid var(--green);display:flex;align-items:center;justify-content:center;
+  color:var(--green);font-size:10px;box-shadow:0 0 8px var(--green);
+}
+.stat-title{
+  font-family:'Orbitron',sans-serif;font-size:9px;
+  color:var(--green);text-shadow:0 0 8px var(--green);letter-spacing:2px;
+}
+.stat-dots{display:flex;gap:4px;margin-left:auto}
+.sdot{width:6px;height:6px;border-radius:50%;background:rgba(0,212,255,0.25)}
+.sdot.on{background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+.sdot.red{background:var(--red);box-shadow:0 0 6px var(--red);animation:blink 0.8s infinite}
+.breach-lbl{font-size:8px;color:var(--text-dim);letter-spacing:2px;margin-bottom:7px;text-transform:uppercase}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px}
+.sc .sl{font-size:7px;color:var(--text-dim);display:flex;align-items:center;gap:4px;margin-bottom:2px}
+.sc .sl::before{content:'▼';color:var(--cyan);font-size:6px}
+.sc .sl.up::before{content:'▲';color:var(--pink)}
+.sc .sv{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--text-bright)}
+.sc .ss{font-size:7px;color:var(--text-dim)}
+.safe-row{display:flex;gap:6px;align-items:center;font-size:7px;margin-bottom:7px}
+.safe-badge{
+  background:rgba(0,255,136,0.08);border:1px solid var(--green);
+  color:var(--green);padding:1px 6px;font-size:8px;
+  font-family:'Orbitron',sans-serif;letter-spacing:1px;text-shadow:0 0 6px var(--green);
+}
+.btn-row{display:flex;gap:5px;align-items:center}
+.btn-main{
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:2px;
+  color:#070718;background:linear-gradient(135deg,var(--cyan),var(--blue));
+  border:none;padding:7px 18px;cursor:pointer;transition:all 0.3s;
+  box-shadow:0 0 14px rgba(0,212,255,0.38);text-transform:uppercase;
+}
+.btn-main:hover{box-shadow:0 0 26px rgba(0,212,255,0.65);transform:translateY(-1px)}
+.btn-sec{
+  font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:1px;color:var(--pink);
+  background:rgba(255,0,255,0.07);border:1px solid rgba(255,0,255,0.38);
+  padding:5px 10px;cursor:pointer;transition:all 0.3s;
+}
+.btn-sec:hover{background:rgba(255,0,255,0.15);box-shadow:0 0 10px rgba(255,0,255,0.3)}
+.btn-sec.pu{color:var(--purple-light);border-color:rgba(170,68,255,0.38)}
+.btn-sec.pu:hover{background:rgba(170,68,255,0.15)}
+.progs{margin-top:7px;display:flex;flex-direction:column;gap:3px}
+.prow{display:flex;align-items:center;gap:5px}
+.pbar{flex:1;height:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,0,255,0.18);overflow:hidden}
+.pfill{height:100%;transition:width 0.5s ease}
+.pfill.pink{background:linear-gradient(90deg,var(--pink),var(--cyan));box-shadow:0 0 5px var(--pink)}
+.pfill.green{background:linear-gradient(90deg,var(--green),var(--cyan));box-shadow:0 0 5px var(--green)}
+.pfill.pu{background:linear-gradient(90deg,var(--purple-light),var(--pink));box-shadow:0 0 5px var(--purple-light)}
+.plbl{font-size:7px;color:var(--text-dim);width:52px}
+.ppct{font-size:7px;color:var(--cyan);width:26px;text-align:right}
+
+/* ===== RIGHT: DATA PANEL ===== */
+.astar{background:rgba(0,0,0,0.3);border:1px solid rgba(100,0,180,0.28);padding:4px;margin-bottom:6px}
+.astar-lbl{font-family:'Orbitron',sans-serif;font-size:8px;color:var(--pink);margin-bottom:4px;text-shadow:0 0 8px var(--pink)}
+.drow{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.drow-lbl{font-size:7px;color:var(--text-dim)}
+.dbars{display:flex;gap:2px}
+.dbs{width:13px;height:7px;background:var(--pink);opacity:0.8}
+.dbs.off{background:rgba(255,0,255,0.12)}
+.dbs.cy{background:var(--cyan)}
+.dbs.pu{background:var(--purple-light)}
+.dbs.rd{background:var(--red)}
+.cpu-row{
+  display:flex;align-items:center;justify-content:space-between;padding:3px 0;
+  border-top:1px solid rgba(255,0,255,0.1);border-bottom:1px solid rgba(255,0,255,0.1);margin-bottom:5px;
+}
+.op-row2{display:flex;align-items:center;gap:6px;font-size:8px;margin-bottom:5px}
+.op-lbl{color:var(--text-dim);letter-spacing:1px;text-transform:uppercase}
+.op-val{color:var(--cyan)}
+.op-time{color:var(--pink);font-family:'Orbitron',sans-serif;margin-left:auto}
+.chart-area{display:flex;gap:6px}
+.chart-left{flex:1}
+.mini-chart{height:28px;display:flex;align-items:flex-end;gap:2px;margin-bottom:4px}
+.cbar{flex:1;min-height:2px;background:rgba(255,0,255,0.4)}
+.scan-items{font-size:7px}
+.si{display:flex;align-items:center;gap:4px;margin-bottom:2px}
+.si-dot{width:5px;height:5px;border-radius:50%}
+.si-dot.pk{background:var(--pink);box-shadow:0 0 4px var(--pink)}
+.si-dot.cy{background:var(--cyan);box-shadow:0 0 4px var(--cyan)}
+.si-dot.pu{background:var(--purple-light);box-shadow:0 0 4px var(--purple-light)}
+.rbars{display:flex;flex-direction:column;gap:3px}
+.rbar-row{display:flex;gap:2px}
+.rbs{width:10px;height:10px;border:1px solid rgba(255,0,255,0.28)}
+.rbs.f{background:var(--pink);box-shadow:0 0 3px var(--pink)}
+.rbs.fc{background:var(--cyan);box-shadow:0 0 3px var(--cyan)}
+.rbs.fp{background:var(--purple-light)}
+
+/* ===== RIGHT: COUNTERS ===== */
+.cnt-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cnt-t{font-family:'Orbitron',sans-serif;font-size:8px;color:var(--text-bright);letter-spacing:2px}
+.cg-wrap{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.cg{position:relative;width:100%;padding-top:90%}
+.cg svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.cg-inner{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+}
+.cg-val{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;line-height:1}
+.cg-lbl{font-size:6px;color:var(--text-dim)}
+.cg-scale{font-size:7px;color:var(--text-dim);text-align:right;margin-top:3px}
+.temp-row2{
+  display:flex;align-items:center;gap:7px;font-size:8px;padding:4px;
+  background:rgba(0,0,0,0.28);border:1px solid rgba(100,0,180,0.28);
+}
+.temp-ico{
+  width:20px;height:20px;border-radius:50%;border:1px solid var(--pink);
+  display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--pink);
+}
+
+/* ===== RIGHT: VOLUME ===== */
+.vol-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;height:calc(100% - 26px)}
+.vol-ct{
+  font-family:'Orbitron',sans-serif;font-size:7px;color:var(--text-dim);letter-spacing:2px;
+  margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid rgba(255,0,255,0.12);
+}
+.opi{display:flex;align-items:center;gap:5px;margin-bottom:3px;font-size:7px}
+.opi-icon{width:8px;height:8px;flex-shrink:0}
+.opi-text{color:var(--text-dim);line-height:1.3;flex:1}
+.opi-pct{font-family:'Orbitron',sans-serif;font-size:8px}
+.op-prog{height:3px;background:rgba(255,255,255,0.04);margin:2px 0 4px 13px}
+.op-pf{height:100%;background:linear-gradient(90deg,var(--pink),var(--cyan));transition:width 0.5s}
+.sti{display:flex;align-items:center;gap:4px;margin-bottom:3px;font-size:7px;color:var(--text-dim)}
+.sti-ic{width:6px;height:6px;flex-shrink:0;transition:all 0.3s}
+.sti-ic.done{background:var(--green)!important;box-shadow:0 0 4px var(--green)}
+.sti-ic.running{background:var(--cyan)!important;animation:blink 0.5s infinite}
+
+/* ===== STUDENT ENTRIES ===== */
+.se{
+  display:flex;align-items:center;gap:5px;padding:2px 4px;margin-bottom:2px;
+  border-left:2px solid transparent;font-size:8px;transition:all 0.3s;
+}
+.se.present{
+  border-left-color:var(--green);background:rgba(0,255,136,0.04);
+  color:var(--green);text-shadow:0 0 5px rgba(0,255,136,0.45);
+}
+.se.absent{
+  border-left-color:var(--red);background:rgba(255,34,68,0.04);
+  color:var(--red);text-shadow:0 0 5px rgba(255,34,68,0.45);
+}
+@keyframes scan-flash{
+  0%,100%{background:rgba(0,212,255,0.06)}50%{background:rgba(0,212,255,0.2)}
+}
+.se.scanning{
+  animation:scan-flash 0.45s ease-in-out infinite;
+  border-left-color:var(--cyan);color:var(--cyan);
+}
+.se .sdot2{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.se.present .sdot2{background:var(--green);box-shadow:0 0 5px var(--green)}
+.se.absent .sdot2{background:var(--red);box-shadow:0 0 4px var(--red)}
+.se.scanning .sdot2{background:var(--cyan);animation:blink 0.4s infinite}
+
+/* ===== NOTIFY ===== */
+@keyframes nfade{0%,100%{opacity:0}10%,88%{opacity:1}}
+.notify{
+  position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  background:rgba(5,5,20,0.95);border:1px solid var(--cyan);color:var(--cyan);
+  font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:2px;
+  padding:8px 22px;z-index:10000;box-shadow:0 0 22px rgba(0,212,255,0.4);
+  animation:nfade 3s ease-in-out forwards;pointer-events:none;
+}
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<div class="dashboard">
+
+  <!-- ==================== LEFT COLUMN ==================== -->
+  <div class="col">
+
+    <!-- P1: System Window -->
+    <div class="panel" style="flex:0 0 auto">
+      <div class="corner ctl"></div><div class="corner ctr"></div>
+      <div class="corner cbl"></div><div class="corner cbr"></div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,0,255,0.07);border:1px solid rgba(255,0,255,0.2);padding:3px 6px;margin-bottom:5px">
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--text-bright);letter-spacing:1px">WIFINCE v2.4.1 &nbsp;|&nbsp; SYS.CTRL</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:8px;color:var(--text-dim)">DATA ▲</span>
+          <div style="display:flex;gap:4px">
+            <span style="width:9px;height:9px;border-radius:50%;background:var(--yellow);box-shadow:0 0 6px var(--yellow);display:inline-block"></span>
+            <span style="width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:inline-block"></span>
+            <span style="width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red);display:inline-block"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="syswin-bar"></div>
+
+      <div class="syswin-info">
+        <div class="syswin-item">IP: <span>192.168.137.1</span></div>
+        <div class="syswin-item">BRANCH: <span class="neon-p">CSE</span></div>
+        <div class="syswin-item">SECTION: <span>4B</span></div>
+        <div class="syswin-item">SEM: <span class="neon-p">4</span></div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+        <div class="syswin-nav">
+          <button onclick="startScan()">SCAN</button>
+          <button onclick="exportCSV()">CSV</button>
+          <button onclick="exportTXT()">TXT</button>
+          <button onclick="resetSystem()">RESET</button>
+        </div>
+        <button class="rst-btn" onclick="resetSystem()">RST</button>
+      </div>
+
+      <div style="font-size:7px;color:var(--text-dim);margin-top:5px;font-family:'Share Tech Mono'">
+        &gt; ARP SCANNER READY &nbsp;<span class="neon-c blink">█</span>
+      </div>
+    </div>
+
+    <!-- P2: Network Status -->
+    <div class="panel" style="flex:0 0 auto">
+      <div class="corner ctl"></div><div class="corner ctr"></div>
+      <div class="corner cbl"></div><div class="corner cbr"></div>
+
+      <div class="ph">
+        <span class="pt">FIREWALL STATUS</span>
+        <span class="ps">A8.47.1C</span>
+      </div>
+
+      <div class="net-main">
+        <span class="badge-active">ACTIVE</span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);display:inline-block" class="blink"></span>
+          <span style="font-size:8px;color:var(--green)">ONLINE</span>
+        </div>
+      </div>
+
+      <div class="ip-grid">
+        <div class="ip-cell clickable" onclick="showTip(event,'HOST IP','192.168.137.1\nGateway / Hotspot')">192.168.137.1</div>
+        <div class="ip-cell clickable" onclick="showTip(event,'SUBNET','255.255.255.0\nClass C / 254 hosts')">255.255.255.0</div>
+        <div class="ip-cell clickable" onclick="showTip(event,'GATEWAY','192.168.137.1\nLocal Hotspot')">192.168.137.1</div>
+      </div>
+
+      <div class="net-details">
+        <div class="nd">
+          <div class="nl">102.HOST IP</div>
+          <div class="nv">192.168.137.1</div>
+          <div style="font-size:6px;margin-top:2px">Hotspot Gateway</div>
+          <div style="font-size:6px">WiFi Direct Mode</div>
+          <div style="font-size:6px">ARP Monitor ON</div>
+        </div>
+        <div class="nd">
+          <div class="nl">SURIET MASK</div>
+          <div class="nv">255.255.255.0</div>
+          <div style="font-size:6px;margin-top:2px">Class C Network</div>
+          <div style="font-size:6px">DHCP Enabled</div>
+          <div style="font-size:6px">MAC Track ON</div>
+        </div>
+        <div class="nd">
+          <div class="nl">GATEWAY</div>
+          <div class="nv">192.168.137.1</div>
+          <div style="font-size:6px;margin-top:2px">Local Hotspot</div>
+          <div style="font-size:6px">Flask :5000</div>
+          <div style="font-size:6px">SSL Disabled</div>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="net-bars">
+        <span style="color:var(--pink)">↑ TX: <span class="neon-c">2.4 MB</span></span>
+        <span style="color:var(--text-dim)">|</span>
+        <span>↓ RX: <span class="neon-c">81 KB</span></span>
+        <span style="color:var(--text-dim)">|</span>
+        <span>LAT: <span class="neon-p">67ms</span></span>
+      </div>
+    </div>
+
+    <!-- P3: Devices -->
+    <div class="panel" style="flex:1;min-height:0">
+      <div class="corner ctl"></div><div class="corner ctr"></div>
+      <div class="corner cbl"></div><div class="corner cbr"></div>
+
+      <div class="ph"><span class="pt">NETWORK</span></div>
+
+      <div class="dev-hdr">
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:1px">PERIPHERAL DEVICES</span>
+        <span class="neon-c" id="deviceCount" style="font-size:9px">0</span>
+        <span class="badge-active" style="font-size:9px">ACTIVE</span>
+      </div>
+
+      <div class="scroll-area dev-list" id="deviceList">
+        <div class="dev-row" style="font-size:7px;color:var(--text-dim);padding:2px">NO DEVICES CONNECTED</div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="metrics">
+        <div class="mbox clickable" onclick="showTip(event,'ARP SCANS','Total network scans\nperformed this session')"><div class="ml">ARP SCANS</div><div class="mv" id="scanCount">0</div></div>
+        <div class="mbox clickable" onclick="showTip(event,'HOST IP','192.168.137.1\nWiFi Hotspot Interface')"><div class="ml">HOST IP</div><div class="mv" style="font-size:8px">192.168</div></div>
+        <div class="mbox clickable" onclick="showTip(event,'CONNECTED','Devices on network\nvia ARP detection')"><div class="ml">CONNECTED</div><div class="mv" id="connectedCount">0</div></div>
+        <div class="mbox clickable" onclick="showTip(event,'TIMEOUT','Device response\ntimeout threshold')"><div class="ml">TIMEOUT</div><div class="mv">30s</div></div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="dev-footer">
+        <span>SCANNER: <span class="neon-c">ARP-MAC</span></span>
+        <span style="color:var(--text-dim)">|</span>
+        <span>WIFI: <span class="neon-p">HOTSPOT</span></span>
+        <span style="color:var(--text-dim)">|</span>
+        <span class="neon-g blink-slow">●</span>
+        <span style="color:var(--text-dim)">10.3 MBS</span>
+      </div>
+    </div>
+
+    <!-- P4: Gauge -->
+    <div class="panel" style="flex:0 0 auto">
+      <div class="corner ctl"></div><div class="corner ctr"></div>
+      <div class="corner cbl"></div><div class="corner cbr"></div>
+
+      <div class="gauge-wrap">
+        <div class="donut clickable" onclick="showGaugePopup(event)"
+          <svg viewBox="0 0 80 80">
+            <defs>
+              <linearGradient id="ggrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#ff00ff"/>
+                <stop offset="100%" style="stop-color:#00d4ff"/>
+              </linearGradient>
+              <filter id="gshadow">
+                <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#ff00ff" flood-opacity="0.8"/>
+              </filter>
+            </defs>
+            <circle cx="40" cy="40" r="30" fill="none" stroke="rgba(255,0,255,0.1)" stroke-width="8"/>
+            <circle cx="40" cy="40" r="30" fill="none" stroke="url(#ggrad)" stroke-width="8"
+                    stroke-dasharray="188.5" stroke-dashoffset="188.5" id="gaugeCircle"
+                    stroke-linecap="round" filter="url(#gshadow)" style="transition:stroke-dashoffset 0.7s ease"/>
+          </svg>
+          <div class="donut-inner">
+            <div class="donut-pct" id="attendancePct">0%</div>
+            <div class="donut-lbl">PRESENT</div>
+          </div>
+        </div>
+
+        <div class="gdata">
+          <div class="grow"><span style="color:var(--text-dim);font-size:7px">PRESENT</span><span class="neon-g" style="font-family:'Orbitron',sans-serif;font-size:10px" id="presentCount">0</span></div>
+          <div class="grow"><span style="color:var(--text-dim);font-size:7px">ABSENT</span><span class="neon-r" style="font-family:'Orbitron',sans-serif;font-size:10px" id="absentCount">15</span></div>
+          <div class="grow"><span style="color:var(--text-dim);font-size:7px">TOTAL</span><span style="color:var(--text-bright);font-size:10px">15</span></div>
+          <div class="sep"></div>
+          <div style="font-size:7px;color:var(--text-dim)">POMA: <span class="neon-c">CSE-4B</span></div>
+        </div>
+      </div>
+
+      <div class="timer" id="sessionTimer">00:00:00</div>
+    </div>
+
+  </div><!-- /col-left -->
+
+
+  <!-- ==================== CENTER COLUMN ==================== -->
+  <div class="col">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="tb-icons">
+        <div class="tb-icon">≡</div>
+        <div class="tb-icon">⟨</div>
+        <div class="tb-icon on">⚡</div>
+        <div class="tb-icon">⊞</div>
+        <div class="tb-icon">⟩</div>
+      </div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:10px;color:var(--cyan);letter-spacing:3px;text-shadow:0 0 8px var(--cyan)" id="liveClock">00:00:00</div>
+      <div class="tb-icon">📡</div>
+    </div>
+
+    <!-- Core Animation Panel -->
+    <div class="panel core-panel">
+      <div class="core-cca tl"></div><div class="core-cca tr"></div>
+      <div class="core-cca bl"></div><div class="core-cca br"></div>
+      <div class="core-dl" style="top:12%"></div>
+      <div class="core-dl" style="top:88%"></div>
+
+      <div class="core-title">WIFINCE SYSTEM CORE</div>
+
+      <div class="rings">
+        <div class="ring r1"></div>
+        <div class="ring r2"></div>
+        <div class="ring r3"></div>
+        <div class="ring r4"></div>
+        <div class="oct"></div>
+        <div class="core-center"><div class="core-icon">📶</div></div>
+      </div>
+
+      <div class="core-side left">
+        <span class="neon-c">▶ ARP</span>
+        <span style="color:var(--text-dim)">SCAN</span>
+        <span style="color:var(--text-dim)">WIFI</span>
+        <span style="color:var(--text-dim)">SQL</span>
+        <span class="neon-p">▶ LIVE</span>
+      </div>
+      <div class="core-side right">
+        <span class="neon-p">5000 ◀</span>
+        <span style="color:var(--text-dim)">FLASK</span>
+        <span style="color:var(--text-dim)">HTTP</span>
+        <span style="color:var(--text-dim)">LAN</span>
+        <span class="neon-c">LIVE ◀</span>
+      </div>
+
+      <button class="scan-btn" id="coreScanBtn" onclick="startScan()">▶ SCAN NETWORK</button>
+
+      <!-- Detection Overlay -->
+      <div class="core-overlay" id="coreOverlay">
+
+        <!-- Phase 1: Connect to hotspot -->
+        <div class="hotspot-msg pulse" id="hotspotMsg">
+          <span class="wifi-big">📶</span>
+          CONNECT TO<br>MOBILE HOTSPOT
+          <div class="hotspot-sub">WAITING FOR DEVICES ON 192.168.137.x ...</div>
+        </div>
+
+        <!-- Phase 2: Student detected card -->
+        <div class="detect-card" id="detectCard">
+          <div class="corner ctl"></div><div class="corner ctr"></div>
+          <div class="corner cbl"></div><div class="corner cbr"></div>
+          <div class="detect-label">DEVICE DETECTED</div>
+          <div class="detect-name" id="detName">—</div>
+          <div class="detect-roll" id="detRoll">—</div>
+          <div class="detect-row">
+            <div class="detect-field">
+              <div class="df-label">IP ADDRESS</div>
+              <div class="df-val" id="detIP">—</div>
+            </div>
+            <div class="detect-field">
+              <div class="df-label">MAC ADDRESS</div>
+              <div class="df-val" id="detMAC">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 3: Tick / X result -->
+        <div class="big-tick" id="bigTick">
+          <div class="tick-circle" id="tickCircle">
+            <svg viewBox="0 0 36 36">
+              <path id="tickPath" d="M8 18 L15 26 L28 10"/>
+            </svg>
+          </div>
+          <div class="tick-status" id="tickStatus">MARKED PRESENT</div>
+        </div>
+
+        <!-- Phase 4: Scan complete summary -->
+        <div class="scan-done" id="scanDone">
+          <div class="tick-circle pop" style="width:80px;height:80px;border-color:var(--green);box-shadow:0 0 30px rgba(0,255,136,0.6)">
+            <svg viewBox="0 0 36 36" style="width:42px;height:42px">
+              <path d="M8 18 L15 26 L28 10" stroke="var(--green)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="scan-done-count" id="scanDoneCount">0/15</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:10px;color:var(--cyan);letter-spacing:3px">SCAN COMPLETE</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Status Panel -->
+    <div class="panel" style="flex:0 0 auto">
+      <div class="corner ctl"></div><div class="corner ctr"></div>
+      <div class="corner cbl"></div><div class="corner cbr"></div>
+
+      <div class="stat-hdr">
+        <div class="stat-check">✓</div>
+        <div class="stat-title">SESSION ACTIVE</div>
+        <div class="stat-dots">
+          <div class="sdot on blink"></div>
+          <div class="sdot on"></div>
+          <div class="sdot on"></div>
+          <div class="sdot"></div>
+          <div class="sdot"></div>
+          <div class="sdot"></div>
+          <div class="sdot red"></div>
+        </div>
+      </div>
+
+      <div class="breach-lbl">ATTENDANCE SCAN STATUS</div>
+
+      <div class="stat-grid">
+        <div class="sc">
+          <div class="sl up">DATA RATE</div>
+          <div class="sv" id="dataRate">0.0 MB/s</div>
+          <div class="ss">512A BYTES/SCAN</div>
+        </div>
+        <div class="sc">
+          <div class="sl">SCAN MODE</div>
+          <div class="sv neon-c">ARP-BASED</div>
+          <div class="ss" id="threatStatus">THREAT: SAFE</div>
+        </div>
+      </div>
+
+      <div class="safe-row">
+        <span style="color:var(--text-dim)">SYSTEM SAFE</span>
+        <span style="color:var(--text-dim)">▲ SETTINGS</span>
+        <span class="safe-badge">SAFE</span>
+        <span style="color:var(--text-dim)">115</span>
+        <span style="margin-left:auto;font-size:8px">
+          <span class="neon-c">192.168.137.1</span>
+          <span style="color:var(--text-dim)"> CPU:3.5%</span>
+          <span style="color:var(--text-dim)" id="safeCount"> 0/15</span>
+          <span class="neon-g"> SAFE</span>
+        </span>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-main" id="mainScanBtn" onclick="startScan()">SYSTEM ACTIVE</button>
+        <button class="btn-sec" onclick="exportCSV()">EXPORT CSV</button>
+        <button class="btn-sec pu" onclick="exportTXT()">EXPORT TXT</button>
+      </div>
+
+      <div class="progs">
+        <div class="prow">
+          <span class="plbl">SCAN PROG</span>
+          <div class="pbar"><div class="pfill pink" id="scanProg" style="width:0%"></div></div>
+          <span class="ppct" id="scanProgPct">0%</span>
+        </div>
+        <div class="prow">
+          <span class="plbl">ATTENDANCE</span>
+          <div class="pbar"><div class="pfill green" id="attendProg" style="width:0%"></div></div>
+          <span class="ppct" id="attendProgPct">0%</span>
+        </div>
+        <div class="prow">
+          <span class="plbl">NETWORK</span>
+          <div class="pbar"><div class="pfill pu" style="width:73%"></div></div>
+          <span class="ppct">73%</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /col-center -->
+
+
+  <!-- ==================== RIGHT COLUMN ==================== -->
+  <div class="col">
+
+    <!-- P1: Data Panel -->
+    <div class="panel" style="flex:0 0 auto">
+      <div class="corner ctl"></div><div class="corner ctr"></div>
+      <div class="corner cbl"></div><div class="corner cbr"></div>
+
+      <div class="ph">
+        <span class="pt">DATA</span>
+        <span class="ps">SHOW DATA WINDOW</span>
+      </div>
+
+      <div class="astar">
+        <div class="astar-lbl">A: PRESENT STUDENTS</div>
+        <div class="drow clickable" onclick="showTip(event,'CSE-4B SEM-4','Section 4B attendance\n73% weekly average')">
+          <span class="drow-lbl">CSE-4B SEM-4</span>
+          <div class="dbars">
+            <div class="dbs clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs off clickable" onclick="event.stopPropagation();toggleDbs(this)"></div>
+            <div class="dbs cy clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs cy clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs off clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs clickable" onclick="event.stopPropagation();toggleDbs(this)"></div>
+          </div>
+        </div>
+        <div class="drow clickable" onclick="showTip(event,'ATTENDANCE','Overall attendance\nrecord: 68%')">
+          <span class="drow-lbl">ATTENDANCE</span>
+          <div class="dbars">
+            <div class="dbs clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs pu clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs off clickable" onclick="event.stopPropagation();toggleDbs(this)"></div>
+            <div class="dbs cy clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs off clickable" onclick="event.stopPropagation();toggleDbs(this)"></div>
+          </div>
+        </div>
+        <div class="drow clickable" onclick="showTip(event,'WIFI DETECT','ARP scan results\ndetected: 1/15')">
+          <span class="drow-lbl">WIFI DETECT</span>
+          <div class="dbars">
+            <div class="dbs off clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs cy clickable" onclick="event.stopPropagation();toggleDbs(this)"></div>
+            <div class="dbs clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs off clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs pu clickable" onclick="event.stopPropagation();toggleDbs(this)"></div>
+          </div>
+        </div>
+        <div class="drow clickable" onclick="showTip(event,'ABSENT STU','Students not\ndetected on network')">
+          <span class="drow-lbl">ABSENT STU</span>
+          <div class="dbars">
+            <div class="dbs rd clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs rd clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs off clickable" onclick="event.stopPropagation();toggleDbs(this)"></div>
+            <div class="dbs off clickable" onclick="event.stopPropagation();toggleDbs(this)"></div><div class="dbs off clickable" onclick="event.stopPropagation();toggleDbs(this)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cpu-row">
+        <span style="font-size:7px;letter-spacing:2px;color:var(--text-dim)">CPU TEMPERATURE</span>
+        <span class="neon-c" style="font-size:8px">▶</span>
+        <span style="font-size:7px;color:var(--text-dim)">●</span>
+        <span class="neon-p" style="font-size:8px;margin-left:auto">▶</span>
+      </div>
+
+      <div class="op-row2">
+        <span class="op-lbl">OPERATION</span>
+        <span class="op-val">SESSION</span>
+        <span class="op-time blink-slow" id="opTime">● 5:13 PM</span>
+      </div>
+
+      <div class="chart-area">
+        <div class="chart-left">
+          <div style="font-size:7px;color:var(--text-dim);margin-bottom:3px">WEEKLY ATTENDANCE</div>
+          <div class="mini-chart">
+            <div class="cbar clickable" style="height:55%" onclick="clickBar(this,55,'MON')"></div>
+            <div class="cbar clickable" style="height:80%;background:rgba(0,212,255,0.5)" onclick="clickBar(this,80,'TUE')"></div>
+            <div class="cbar clickable" style="height:35%" onclick="clickBar(this,35,'WED')"></div>
+            <div class="cbar clickable" style="height:90%;background:rgba(170,68,255,0.5)" onclick="clickBar(this,90,'THU')"></div>
+            <div class="cbar clickable" style="height:50%" onclick="clickBar(this,50,'FRI')"></div>
+            <div class="cbar clickable" style="height:70%;background:rgba(0,212,255,0.5)" onclick="clickBar(this,70,'SAT')"></div>
+            <div class="cbar clickable" style="height:28%" onclick="clickBar(this,28,'SUN')"></div>
+            <div class="cbar clickable" style="height:88%" onclick="clickBar(this,88,'AVG')"></div>
+          </div>
+          <div class="scan-items">
+            <div class="si"><div class="si-dot pk"></div><span style="color:var(--text-dim)">SCAN &nbsp;</span><span class="neon-p">15 INIT %</span></div>
+            <div class="si"><div class="si-dot cy"></div><span style="color:var(--text-dim)">ARP &nbsp;</span><span class="neon-c">MAC-DETECT</span></div>
+            <div class="si"><div class="si-dot pu"></div><span style="color:var(--text-dim)">WIFI &nbsp;</span><span style="color:var(--purple-light)">HOTSPOT</span></div>
+          </div>
+        </div>
+        <div class="rbars" style="width:48px">
+          <div class="rbar-row"><div class="rbs f clickable" onclick="toggleRbs(this)"></div><div class="rbs f clickable" onclick="toggleRbs(this)"></div><div class="rbs fc clickable" onclick="toggleRbs(this)"></div><div class="rbs clickable" onclick="toggleRbs(this)"></div></div>
+          <div class="rbar-row"><div class="rbs f clickable" onclick="toggleRbs(this)"></div><div class="rbs fp clickable" onclick="toggleRbs(this)"></div><div class="rbs clickable" onclick="toggleRbs(this)"></div><div class="rbs f clickable" onclick="toggleRbs(this)"></div></div>
+          <div class="rbar-row"><div class="rbs fc clickable" onclick="toggleRbs(this)"></div><div class="rbs f clickable" onclick="toggleRbs(this)"></div><div class="rbs f clickable" onclick="toggleRbs(this)"></div><div class="rbs clickable" onclick="toggleRbs(this)"></div></div>
+          <div class="rbar-row"><div class="rbs clickable" onclick="toggleRbs(this)"></div><div class="rbs f clickable" onclick="toggleRbs(this)"></div><div class="rbs fc clickable" onclick="toggleRbs(this)"></div><div class="rbs f clickable" onclick="toggleRbs(this)"></div></div>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- FLOWCHART: Click to expand -->
+      <div class="flowchart-toggle clickable" id="flowToggle" onclick="toggleFlowchart()">
+        <span style="font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:2px;color:var(--cyan);text-shadow:0 0 6px var(--cyan)">▶ SCAN FLOWCHART</span>
+        <span style="font-size:7px;color:var(--text-dim);margin-left:auto" id="flowArrow">[ CLICK TO SHOW ]</span>
+      </div>
+      <div class="flowchart-container" id="flowContainer">
+        <svg class="flowchart-svg" viewBox="0 0 280 210" xmlns="http://www.w3.org/2000/svg">
+          <!-- Lines -->
+          <line x1="140" y1="28" x2="140" y2="48" class="fc-line"/>
+          <line x1="140" y1="72" x2="140" y2="88" class="fc-line"/>
+          <line x1="140" y1="112" x2="140" y2="128" class="fc-line"/>
+          <line x1="140" y1="152" x2="80" y2="172" class="fc-line"/>
+          <line x1="140" y1="152" x2="200" y2="172" class="fc-line"/>
+          <!-- Arrow heads -->
+          <polygon points="137,48 143,48 140,54" class="fc-arrow"/>
+          <polygon points="137,88 143,88 140,94" class="fc-arrow"/>
+          <polygon points="137,128 143,128 140,134" class="fc-arrow"/>
+          <polygon points="77,172 83,172 80,178" class="fc-arrow fc-arrow-green"/>
+          <polygon points="197,172 203,172 200,178" class="fc-arrow fc-arrow-red"/>
+
+          <!-- Node 1: START -->
+          <rect x="90" y="8" width="100" height="22" rx="4" class="fc-node fc-node-start clickable" onclick="flowNodeClick(event,'START HOTSPOT','Teacher turns ON\nmobile hotspot\nfor student WiFi')"/>
+          <text x="140" y="22" class="fc-text">START HOTSPOT</text>
+
+          <!-- Node 2: ARP SCAN -->
+          <rect x="80" y="52" width="120" height="22" rx="4" class="fc-node fc-node-scan clickable" onclick="flowNodeClick(event,'ARP SCAN','Scanner sends ARP\nrequest on 192.168.137.x\nSubnet: 255.255.255.0')"/>
+          <text x="140" y="66" class="fc-text">ARP SCAN NETWORK</text>
+
+          <!-- Node 3: DETECT MAC -->
+          <rect x="75" y="92" width="130" height="22" rx="4" class="fc-node fc-node-detect clickable" onclick="flowNodeClick(event,'DETECT DEVICE','Reads ARP table for\nMAC + IP addresses\nof connected devices')"/>
+          <text x="140" y="106" class="fc-text">DETECT MAC + IP</text>
+
+          <!-- Node 4: MATCH STUDENT (diamond) -->
+          <polygon points="140,130 190,145 140,160 90,145" class="fc-node fc-node-decision clickable" onclick="flowNodeClick(event,'MATCH STUDENT','Compares detected MAC\nwith student database\nto identify roll number')"/>
+          <text x="140" y="148" class="fc-text fc-text-sm">MATCH?</text>
+
+          <!-- Node 5: PRESENT (green) -->
+          <rect x="40" y="178" width="80" height="22" rx="4" class="fc-node fc-node-present clickable" onclick="flowNodeClick(event,'PRESENT ✓','Student MAC found\nin database — marked\nas PRESENT')"/>
+          <text x="80" y="192" class="fc-text fc-text-green">✓ PRESENT</text>
+
+          <!-- Node 6: ABSENT (red) -->
+          <rect x="160" y="178" width="80" height="22" rx="4" class="fc-node fc-node-absent clickable" onclick="flowNodeClick(event,'ABSENT ✗','Student MAC NOT found\non network — marked\nas ABSENT')"/>
+          <text x="200" y="192" class="fc-text fc-text-red">✗ ABSENT</text>
+
+          <!-- Labels on branches -->
+          <text x="100" y="168" class="fc-label" fill="#00ff88">YES</text>
+          <text x="176" y="168" class="fc-label" fill="#ff2244">NO</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- P2: Scan Counters -->
+    <div class="panel" style="flex:0 0 auto">
+      <div class="corner ctl"></div><div class="corner ctr"></div>
+      <div class="corner cbl"></div><div class="corner cbr"></div>
+
+      <div class="cnt-hdr">
+        <span class="cnt-t">SCAN COUNTERS</span>
+        <span style="font-size:7px;color:var(--text-dim)">ATTENDANCE</span>
+        <span class="cnt-t">ENCRYPTION</span>
+      </div>
+
+      <div class="cg-wrap">
+        <!-- Left gauge: present count -->
+        <div>
+          <div class="cg clickable" onclick="showTip(event,'PRESENT COUNT','Students detected\non WiFi hotspot')"
+            <svg viewBox="0 0 80 80">
+              <defs>
+                <linearGradient id="cg1g" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#ff00ff"/>
+                  <stop offset="100%" style="stop-color:#8800ff"/>
+                </linearGradient>
+              </defs>
+              <circle cx="40" cy="40" r="30" fill="none" stroke="rgba(255,0,255,0.08)" stroke-width="6"/>
+              <circle cx="40" cy="40" r="22" fill="none" stroke="rgba(0,212,255,0.08)" stroke-width="4"/>
+              <circle cx="40" cy="40" r="30" fill="none" stroke="url(#cg1g)" stroke-width="6"
+                      stroke-dasharray="188.5" stroke-dashoffset="188.5" id="cg1Circle"
+                      stroke-linecap="round" style="transition:stroke-dashoffset 0.7s ease"/>
+              <circle cx="40" cy="40" r="22" fill="none" stroke="rgba(0,212,255,0.55)" stroke-width="4"
+                      stroke-dasharray="138.2" stroke-dashoffset="138.2" id="cg2Circle"
+                      style="transition:stroke-dashoffset 0.7s ease"/>
+            </svg>
+            <div class="cg-inner">
+              <div class="cg-val neon-p" id="cg1Val">0</div>
+              <div class="cg-lbl">PRESENT</div>
+            </div>
+          </div>
+          <div class="cg-scale">
+            <div>MAX: 15</div>
+            <div id="cg1Rate">0.0%</div>
+            <div>25.00</div>
+            <div>60</div>
+          </div>
+        </div>
+
+        <!-- Right gauge: encryption rings -->
+        <div>
+          <div class="cg clickable" onclick="showTip(event,'ARP SECURITY','Network scan\nencryption status: SAFE')"
+            <svg viewBox="0 0 80 80">
+              <defs>
+                <linearGradient id="cg2g" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#aa44ff"/>
+                  <stop offset="100%" style="stop-color:#ff00ff"/>
+                </linearGradient>
+              </defs>
+              <circle cx="40" cy="40" r="30" fill="none" stroke="rgba(170,68,255,0.1)" stroke-width="5"/>
+              <circle cx="40" cy="40" r="22" fill="none" stroke="rgba(255,0,255,0.1)" stroke-width="4"/>
+              <circle cx="40" cy="40" r="14" fill="none" stroke="rgba(0,212,255,0.1)" stroke-width="3"/>
+              <circle cx="40" cy="40" r="30" fill="none" stroke="url(#cg2g)" stroke-width="5"
+                      stroke-dasharray="188.5" stroke-dashoffset="94.2" stroke-linecap="round"/>
+              <circle cx="40" cy="40" r="22" fill="none" stroke="#ff00ff" stroke-width="4"
+                      stroke-dasharray="138.2" stroke-dashoffset="55.3" stroke-linecap="round" opacity="0.7"/>
+              <circle cx="40" cy="40" r="14" fill="none" stroke="var(--cyan)" stroke-width="3"
+                      stroke-dasharray="87.9" stroke-dashoffset="22" opacity="0.5"/>
+            </svg>
+            <div class="cg-inner">
+              <div class="cg-val" style="font-size:11px;color:var(--purple-light)">ARP</div>
+              <div class="cg-lbl">SECURE</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="temp-row2">
+        <div class="temp-ico">🌡</div>
+        <span style="font-size:7px;color:var(--text-dim)">CPU LOAD</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--cyan)" id="cpuLoad">3.5G</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:9px;color:var(--pink)" id="cpuPct">48.7%</span>
+        <span style="font-size:7px;color:var(--text-dim);margin-left:auto">SCAN ELAPSED:</span>
+        <span style="font-size:7px;color:var(--cyan)" id="scanElapsed">0s</span>
+      </div>
+    </div>
+
+    <!-- P3: Volume / Operation -->
+    <div class="panel" style="flex:1;min-height:0;overflow:hidden">
+      <div class="corner ctl"></div><div class="corner ctr"></div>
+      <div class="corner cbl"></div><div class="corner cbr"></div>
+
+      <div class="ph"><span class="pt">VOLUME</span></div>
+
+      <div class="vol-grid" style="height:calc(100% - 26px)">
+
+        <!-- Left: present/absent lists -->
+        <div style="display:flex;flex-direction:column;min-height:0;overflow:hidden">
+          <div class="vol-ct">OPERATION SYSTEM</div>
+
+          <div style="font-size:7px;color:var(--text-dim);margin-bottom:3px;letter-spacing:1px">▶ PRESENT</div>
+          <div class="scroll-area" style="flex:1;min-height:0" id="presentList">
+            <div class="sti" style="font-size:7px;color:var(--text-dim)">NO PRESENT YET</div>
+          </div>
+
+          <div style="font-size:7px;color:var(--text-dim);margin:4px 0 3px;letter-spacing:1px">▶ ABSENT</div>
+          <div class="scroll-area" style="flex:1;min-height:0" id="absentList">
+            <!-- filled by JS -->
+          </div>
+        </div>
+
+        <!-- Right: scan status -->
+        <div style="display:flex;flex-direction:column">
+          <div class="vol-ct">LINE 1</div>
+
+          <div class="opi">
+            <div class="opi-icon" style="background:var(--cyan)"></div>
+            <div class="opi-text">SCAN: ARP DETECT<br>DEVICE TRACKING</div>
+            <div class="opi-pct" style="color:var(--pink)" id="opPct1">0%</div>
+          </div>
+          <div class="op-prog"><div class="op-pf" id="opBar1" style="width:0%"></div></div>
+
+          <div class="opi">
+            <div class="opi-icon" style="background:var(--green)"></div>
+            <div class="opi-text">MATCH COMPLETE<br>MAC VERIFIED</div>
+            <div class="opi-pct" style="color:var(--green)" id="opPct2">0%</div>
+          </div>
+          <div class="op-prog"><div class="op-pf" id="opBar2" style="width:0%;background:linear-gradient(90deg,var(--green),var(--cyan))"></div></div>
+
+          <div class="sep"></div>
+          <div class="vol-ct" style="margin-top:3px">SCAN HARD DISK</div>
+
+          <div class="sti">
+            <div class="sti-ic done" style="background:rgba(255,255,255,0.1)"></div>
+            <span>SCAN COMPLETED</span>
+          </div>
+          <div class="sti">
+            <div class="sti-ic done" style="background:rgba(255,255,255,0.1)"></div>
+            <span>SECURE HANDLING</span>
+          </div>
+          <div class="sti">
+            <div class="sti-ic" id="si3" style="background:rgba(255,255,255,0.1)"></div>
+            <span>SECURE COMPLETING</span>
+          </div>
+          <div class="sti">
+            <div class="sti-ic" id="si4" style="background:rgba(255,255,255,0.1)"></div>
+            <span>SECURE HANDLING</span>
+          </div>
+          <div class="sep"></div>
+          <div class="sti">
+            <div class="sti-ic" id="si5" style="background:rgba(255,255,255,0.1)"></div>
+            <span>SCANNING COMPLETED</span>
+          </div>
+          <div class="sti">
+            <div class="sti-ic" id="si6" style="background:rgba(255,255,255,0.1)"></div>
+            <span>SECURE HANDLING</span>
+          </div>
+
+          <div style="font-size:7px;color:var(--text-dim);margin-top:auto;padding-top:4px" id="scanResultText">0/15 DETECTED</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /col-right -->
+
+</div><!-- /dashboard -->
+
+<script>
+// ==================== DATA ====================
+const students = [
+  {id:'CSE079',name:'Jay Kumar',status:'absent'},
+  {id:'CSE080',name:'Jatin',status:'absent'},
+  {id:'CSE081',name:'Jessica',status:'absent'},
+  {id:'CSE082',name:'Joy',status:'absent'},
+  {id:'CSE083',name:'Kanishk',status:'absent'},
+  {id:'CSE084',name:'Kalpesh',status:'absent'},
+  {id:'CSE085',name:'Karan',status:'absent'},
+  {id:'CSE086',name:'Karan Purohit',status:'absent'},
+  {id:'CSE087',name:'Kartik Gaur',status:'absent'},
+  {id:'CSE088',name:'Kartik Sharma',status:'absent'},
+  {id:'CSE089',name:'Kashish',status:'absent'},
+  {id:'CSE090',name:'Kavita',status:'absent'},
+  {id:'CSE091',name:'Khush Bhati',status:'absent'},
+  {id:'CSE092',name:'Khush Jain',status:'absent'},
+  {id:'CSE093',name:'Khushal Lakhani',status:'absent'},
+];
+
+let sessionStartTime=null,scanCount=0,scanning=false,scanIdx=0;
+let timerInt=null;
+
+// ==================== CLOCK ====================
+function updateClock(){
+  const n=new Date();
+  const h=n.getHours().toString().padStart(2,'0');
+  const m=n.getMinutes().toString().padStart(2,'0');
+  const s=n.getSeconds().toString().padStart(2,'0');
+  document.getElementById('liveClock').textContent=`${h}:${m}:${s}`;
+  const ampm=n.getHours()>=12?'PM':'AM';
+  document.getElementById('opTime').innerHTML=`● ${h}:${m} ${ampm}`;
+}
+setInterval(updateClock,1000);
+updateClock();
+
+// ==================== SESSION TIMER ====================
+function updateSessionTimer(){
+  if(!sessionStartTime)return;
+  const el=Math.floor((Date.now()-sessionStartTime)/1000);
+  const h=Math.floor(el/3600).toString().padStart(2,'0');
+  const m=Math.floor((el%3600)/60).toString().padStart(2,'0');
+  const s=(el%60).toString().padStart(2,'0');
+  document.getElementById('sessionTimer').textContent=`${h}:${m}:${s}`;
+  document.getElementById('scanElapsed').textContent=`${el}s`;
+}
+
+// ==================== RENDER ====================
+function renderAll(){
+  const present=students.filter(s=>s.status==='present');
+  const absent=students.filter(s=>s.status==='absent');
+  const scanning=students.filter(s=>s.status==='scanning');
+  const total=students.length;
+  const pct=Math.round(present.length/total*100);
+
+  // Present list (volume panel)
+  document.getElementById('presentList').innerHTML=present.length
+    ?present.map(s=>`<div class="se present clickable" onclick="showStudentPopup(event,'${s.id}','${s.name}')"><div class="sdot2"></div><span style="flex:1">${s.id}</span><span style="color:rgba(0,255,136,0.5);font-size:7px">${s.name}</span></div>`).join('')
+    :`<div class="sti" style="font-size:7px;color:var(--text-dim)">NO PRESENT YET</div>`;
+
+  // Absent list (volume panel) — show scanning ones first
+  const absAndScan=[...students.filter(s=>s.status==='scanning'),...students.filter(s=>s.status==='absent')];
+  document.getElementById('absentList').innerHTML=absAndScan.length
+    ?absAndScan.map(s=>`<div class="se ${s.status} clickable" onclick="showStudentPopup(event,'${s.id}','${s.name}')"><div class="sdot2"></div><span style="flex:1">${s.id}</span><span style="color:rgba(255,34,68,0.5);font-size:7px">${s.name}</span></div>`).join('')
+    :`<div class="sti" style="font-size:7px;color:var(--text-dim)">ALL PRESENT</div>`;
+
+  // Device list (left panel)
+  document.getElementById('deviceList').innerHTML=present.length
+    ?present.map(s=>`<div class="dev-row"><div class="dev-dot" style="background:var(--green);box-shadow:0 0 5px var(--green)"></div><span style="color:var(--green)">${s.id}</span><span style="color:var(--text-dim);margin-left:auto">CONN</span></div>`).join('')
+    :`<div class="dev-row" style="color:var(--text-dim)">NO DEVICES CONNECTED</div>`;
+
+  // Count badges
+  document.getElementById('presentCount').textContent=present.length;
+  document.getElementById('absentCount').textContent=absent.length;
+  document.getElementById('deviceCount').textContent=present.length;
+  document.getElementById('connectedCount').textContent=present.length;
+  document.getElementById('scanCount').textContent=scanCount;
+  document.getElementById('cg1Val').textContent=present.length;
+  document.getElementById('cg1Rate').textContent=pct+'%';
+  document.getElementById('safeCount').textContent=` ${present.length}/15`;
+  document.getElementById('scanResultText').textContent=`${present.length}/15 DETECTED`;
+
+  // Donut gauge
+  const circ=188.5;
+  const offset=circ-(pct/100)*circ;
+  document.getElementById('gaugeCircle').style.strokeDashoffset=offset;
+  document.getElementById('attendancePct').textContent=pct+'%';
+
+  // CG1 circles
+  document.getElementById('cg1Circle').style.strokeDashoffset=circ-(pct/100)*circ;
+  document.getElementById('cg2Circle').style.strokeDashoffset=138.2-(pct/100)*138.2;
+
+  // Progress bars
+  const sp=Math.round(scanIdx/total*100);
+  document.getElementById('scanProg').style.width=sp+'%';
+  document.getElementById('scanProgPct').textContent=sp+'%';
+  document.getElementById('attendProg').style.width=pct+'%';
+  document.getElementById('attendProgPct').textContent=pct+'%';
+  document.getElementById('opPct1').textContent=pct+'%';
+  document.getElementById('opBar1').style.width=pct+'%';
+  const p2=Math.round(pct*0.65);
+  document.getElementById('opPct2').textContent=p2+'%';
+  document.getElementById('opBar2').style.width=p2+'%';
+}
+
+// Initial render
+renderAll();
+
+// ==================== HELPERS ====================
+function randMAC(){
+  const h=()=>Math.floor(Math.random()*256).toString(16).toUpperCase().padStart(2,'0');
+  return `${h()}:${h()}:${h()}:${h()}:${h()}:${h()}`;
+}
+function randIP(idx){return `192.168.137.${100+idx}`}
+
+// Center overlay elements
+const overlay=document.getElementById('coreOverlay');
+const hotspotMsg=document.getElementById('hotspotMsg');
+const detectCard=document.getElementById('detectCard');
+const bigTick=document.getElementById('bigTick');
+const scanDone=document.getElementById('scanDone');
+
+function hideAllOverlayPhases(){
+  hotspotMsg.style.display='none';
+  detectCard.classList.remove('show');
+  bigTick.classList.remove('show');
+  scanDone.classList.remove('show');
+}
+function showOverlay(){overlay.classList.add('show')}
+function hideOverlay(){overlay.classList.remove('show');hideAllOverlayPhases()}
+
+// ==================== SCAN ====================
+function startScan(){
+  if(scanning)return;
+  scanning=true;
+  scanIdx=0;
+  scanCount++;
+
+  if(!sessionStartTime){
+    sessionStartTime=Date.now();
+    timerInt=setInterval(updateSessionTimer,1000);
+  }
+
+  students.forEach(s=>s.status='absent');
+  renderAll();
+
+  const btn=document.getElementById('mainScanBtn');
+  const cbtn=document.getElementById('coreScanBtn');
+  btn.textContent='SCANNING...';
+  btn.style.background='linear-gradient(135deg,#ff00ff,#8800ff)';
+  cbtn.textContent='▶ SCANNING...';
+
+  // Reset status icons
+  ['si3','si4','si5','si6'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.classList.remove('done','running');el.style.background='rgba(255,255,255,0.1)';el.style.boxShadow='none';}
+  });
+
+  // Only Kartik Sharma (you) is connected
+  const presentSet=new Set(['CSE088']);
+
+  // PHASE 1: Show "CONNECT TO MOBILE HOTSPOT"
+  hideAllOverlayPhases();
+  hotspotMsg.style.display='';
+  showOverlay();
+
+  // After 2s, start scanning students
+  setTimeout(()=>{
+    hotspotMsg.style.display='none';
+    scanNextStudent();
+  },2000);
+
+  function scanNextStudent(){
+    if(scanIdx>=students.length){
+      // PHASE 4: Scan complete
+      hideAllOverlayPhases();
+      scanDone.classList.add('show');
+      const pCount=students.filter(s=>s.status==='present').length;
+      document.getElementById('scanDoneCount').textContent=`${pCount}/15 PRESENT`;
+
+      scanning=false;
+      btn.textContent='SESSION ACTIVE';
+      btn.style.background='linear-gradient(135deg,var(--cyan),var(--blue))';
+      cbtn.textContent='▶ SCAN NETWORK';
+      document.getElementById('dataRate').textContent=(Math.random()*2+1).toFixed(1)+' MB/s';
+      document.getElementById('threatStatus').textContent='THREAT: SAFE';
+
+      ['si3','si4','si5','si6'].forEach((id,i)=>{
+        setTimeout(()=>{
+          const el=document.getElementById(id);
+          if(el){el.classList.add('done');el.style.background='var(--green)';el.style.boxShadow='0 0 4px var(--green)';}
+        },i*200);
+      });
+
+      renderAll();
+      showNotify('SCAN COMPLETE — '+pCount+' STUDENTS DETECTED');
+
+      // Hide overlay after 3s
+      setTimeout(()=>hideOverlay(),3000);
+      return;
+    }
+
+    const stu=students[scanIdx];
+    const isPresent=presentSet.has(stu.id);
+    const ip=randIP(scanIdx);
+    const mac=randMAC();
+
+    // Mark scanning
+    stu.status='scanning';
+    renderAll();
+
+    // PHASE 2: Show detection card with IP, MAC, Name
+    hideAllOverlayPhases();
+    detectCard.classList.add('show');
+    document.getElementById('detName').textContent=stu.name.toUpperCase();
+    document.getElementById('detRoll').textContent=stu.id;
+    document.getElementById('detIP').textContent=ip;
+    document.getElementById('detMAC').textContent=mac;
+
+    // After showing card, show tick/x result
+    setTimeout(()=>{
+      // Set final status
+      stu.status=isPresent?'present':'absent';
+      scanIdx++;
+      renderAll();
+
+      // PHASE 3: Show tick or X
+      hideAllOverlayPhases();
+      bigTick.classList.add('show');
+
+      const tickCircle=document.getElementById('tickCircle');
+      const tickPath=document.getElementById('tickPath');
+      const tickStatusEl=document.getElementById('tickStatus');
+
+      // Reset animation
+      tickCircle.classList.remove('pop','absent-x');
+      tickPath.style.animation='none';
+      tickPath.offsetHeight; // reflow
+      tickPath.style.animation='';
+
+      if(isPresent){
+        tickCircle.classList.add('pop');
+        tickPath.setAttribute('d','M8 18 L15 26 L28 10');
+        tickPath.style.stroke='var(--green)';
+        tickStatusEl.textContent='MARKED PRESENT ✓';
+        tickStatusEl.className='tick-status present';
+      }else{
+        tickCircle.classList.add('pop','absent-x');
+        tickPath.setAttribute('d','M10 10 L26 26 M26 10 L10 26');
+        tickPath.style.stroke='var(--red)';
+        tickStatusEl.textContent='NOT DETECTED ✗';
+        tickStatusEl.className='tick-status absent';
+      }
+
+      // Move to next student
+      setTimeout(scanNextStudent,700);
+
+    },800+Math.random()*200);
+  }
+}
+
+// ==================== EXPORT ====================
+function ts(){
+  const n=new Date();
+  return `${n.getDate().toString().padStart(2,'0')}-${(n.getMonth()+1).toString().padStart(2,'0')}-${n.getFullYear()} `+
+    `${n.getHours().toString().padStart(2,'0')}:${n.getMinutes().toString().padStart(2,'0')}`;
+}
+
+function exportCSV(){
+  const t=ts();
+  let c=`WIFINCE - WiFi Attendance System\nDate: ${t}\nBranch: CSE | Section: 4B | Semester: 4\nNetwork: 192.168.137.1 | Subnet: 255.255.255.0\n\nRoll No,Name,Status\n`;
+  students.forEach(s=>c+=`${s.id},${s.name},${s.status.toUpperCase()}\n`);
+  const pr=students.filter(s=>s.status==='present').length;
+  c+=`\nPresent,${pr}\nAbsent,${15-pr}\nTotal,15\nAttendance%,${Math.round(pr/15*100)}%`;
+  dl(c,'wifince_attendance_'+Date.now()+'.csv','text/csv');
+  showNotify('CSV EXPORT COMPLETE');
+}
+
+function exportTXT(){
+  const t=ts();
+  let x=`╔══════════════════════════════════════╗\n║     WIFINCE - WiFi Attendance        ║\n╚══════════════════════════════════════╝\n\n`;
+  x+=`Date     : ${t}\nBranch   : CSE | Section: 4B | Sem: 4\nNetwork  : 192.168.137.1\nSubnet   : 255.255.255.0\nScanner  : ARP-based MAC Detection\n\n`;
+  x+=`${'─'.repeat(40)}\nPRESENT STUDENTS\n${'─'.repeat(40)}\n`;
+  students.filter(s=>s.status==='present').forEach(s=>x+=`✓  ${s.id}  ${s.name}\n`);
+  x+=`\n${'─'.repeat(40)}\nABSENT STUDENTS\n${'─'.repeat(40)}\n`;
+  students.filter(s=>s.status==='absent').forEach(s=>x+=`✗  ${s.id}  ${s.name}\n`);
+  const pr=students.filter(s=>s.status==='present').length;
+  x+=`\n${'─'.repeat(40)}\nSUMMARY\n${'─'.repeat(40)}\nPresent    : ${pr}/15\nAbsent     : ${15-pr}/15\nAttendance : ${Math.round(pr/15*100)}%\n`;
+  dl(x,'wifince_attendance_'+Date.now()+'.txt','text/plain');
+  showNotify('TXT EXPORT COMPLETE');
+}
+
+function dl(content,filename,type){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type}));
+  a.download=filename;a.click();
+}
+
+// ==================== RESET ====================
+function resetSystem(){
+  if(scanning)return;
+  students.forEach(s=>s.status='absent');
+  scanIdx=0;
+  scanCount=0;
+  sessionStartTime=null;
+  clearInterval(timerInt);
+  hideOverlay();
+  document.getElementById('sessionTimer').textContent='00:00:00';
+  document.getElementById('scanElapsed').textContent='0s';
+  document.getElementById('dataRate').textContent='0.0 MB/s';
+  document.getElementById('mainScanBtn').textContent='SYSTEM ACTIVE';
+  document.getElementById('mainScanBtn').style.background='linear-gradient(135deg,var(--cyan),var(--blue))';
+  document.getElementById('coreScanBtn').textContent='▶ SCAN NETWORK';
+  ['si3','si4','si5','si6'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.classList.remove('done','running');el.style.background='rgba(255,255,255,0.1)';el.style.boxShadow='none';}
+  });
+  renderAll();
+  showNotify('SYSTEM RESET — ALL CLEARED');
+}
+
+// ==================== NOTIFY ====================
+function showNotify(msg){
+  const el=document.createElement('div');
+  el.className='notify';el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+
+// ==================== CPU FLICKER ====================
+setInterval(()=>{
+  document.getElementById('cpuPct').textContent=(Math.random()*25+30).toFixed(1)+'%';
+  if(sessionStartTime)
+    document.getElementById('dataRate').textContent=(Math.random()*2+0.5).toFixed(1)+' MB/s';
+},2200);
+
+// ==================== INITIAL ABSENT LIST ====================
+document.getElementById('absentList').innerHTML=students.map(s=>
+  `<div class="se absent clickable" onclick="showStudentPopup(event,'${s.id}','${s.name}')"><div class="sdot2"></div><span style="flex:1">${s.id}</span><span style="color:rgba(255,34,68,0.5);font-size:7px">${s.name}</span></div>`
+).join('');
+
+// ==================== TOOLTIP SYSTEM ====================
+let tipEl=null;
+function showTip(e,title,text){
+  e.stopPropagation();
+  if(tipEl)tipEl.remove();
+  tipEl=document.createElement('div');
+  tipEl.className='tippy';
+  tipEl.innerHTML=`<div class="tippy-title">${title}</div><div class="tippy-val">${text}</div>`;
+  document.body.appendChild(tipEl);
+  const r=e.target.getBoundingClientRect();
+  let x=r.left+r.width/2-tipEl.offsetWidth/2;
+  let y=r.top-tipEl.offsetHeight-8;
+  if(y<5)y=r.bottom+8;
+  if(x<5)x=5;
+  if(x+tipEl.offsetWidth>window.innerWidth-5)x=window.innerWidth-tipEl.offsetWidth-5;
+  tipEl.style.left=x+'px';tipEl.style.top=y+'px';
+  requestAnimationFrame(()=>tipEl.classList.add('show'));
+  setTimeout(()=>{if(tipEl){tipEl.classList.remove('show');setTimeout(()=>{if(tipEl){tipEl.remove();tipEl=null}},200)}},2500);
+}
+document.addEventListener('click',()=>{if(tipEl){tipEl.remove();tipEl=null}});
+
+// ==================== CLICKABLE CHART BARS ====================
+function clickBar(el,val,day){
+  document.querySelectorAll('.cbar').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  showTip({stopPropagation:()=>{},target:el},day,`Attendance: ${val}%\n${Math.round(val*15/100)} students`);
+  setTimeout(()=>el.classList.remove('active'),1500);
+}
+
+// ==================== TOGGLE RBS GRID ====================
+function toggleRbs(el){
+  const classes=['','f','fc','fp'];
+  let cur=classes.findIndex(c=>c&&el.classList.contains(c));
+  if(cur<0)cur=0;
+  const next=(cur+1)%classes.length;
+  classes.forEach(c=>{if(c)el.classList.remove(c)});
+  if(classes[next])el.classList.add(classes[next]);
+}
+
+// ==================== TOGGLE DATA BAR SEGMENTS ====================
+function toggleDbs(el){
+  const isOff=el.classList.contains('off');
+  if(isOff){
+    el.classList.remove('off');
+    el.style.transform='scaleY(1.4)';
+    setTimeout(()=>el.style.transform='',200);
+  }else{
+    el.classList.add('off');
+  }
+}
+
+// ==================== GAUGE POPUP ====================
+function showGaugePopup(e){
+  const pr=students.filter(s=>s.status==='present').length;
+  const ab=students.filter(s=>s.status==='absent').length;
+  const pct=Math.round(pr/15*100);
+  showDetailPopup(e,'ATTENDANCE GAUGE',[
+    ['Present',pr+' students'],
+    ['Absent',ab+' students'],
+    ['Rate',pct+'%'],
+    ['Section','CSE-4B'],
+    ['Semester','4'],
+    ['Scanner','ARP-MAC'],
+  ]);
+}
+
+// ==================== STUDENT POPUP ====================
+function showStudentPopup(e,id,name){
+  e.stopPropagation();
+  const stu=students.find(s=>s.id===id);
+  const status=stu?stu.status.toUpperCase():'UNKNOWN';
+  const ip=stu&&stu.status==='present'?randIP(students.indexOf(stu)):'NOT CONNECTED';
+  showDetailPopup(e,'STUDENT INFO',[
+    ['Name',name],
+    ['Roll',id],
+    ['Status',status],
+    ['IP',ip],
+    ['Section','CSE-4B'],
+  ]);
+}
+
+// ==================== DETAIL POPUP ====================
+let popupEl=null;
+function showDetailPopup(e,title,rows){
+  if(popupEl){popupEl.remove();popupEl=null}
+  popupEl=document.createElement('div');
+  popupEl.className='detail-popup show';
+  let html=`<div class="corner ctl"></div><div class="corner ctr"></div><div class="corner cbl"></div><div class="corner cbr"></div>`;
+  html+=`<div class="dp-close" onclick="closePopup()">✕</div>`;
+  html+=`<div class="dp-title">${title}</div>`;
+  rows.forEach(([k,v])=>{
+    html+=`<div class="dp-row"><span class="dp-k">${k}</span><span class="dp-v">${v}</span></div>`;
+  });
+  popupEl.innerHTML=html;
+  document.body.appendChild(popupEl);
+  const r=e.target.getBoundingClientRect();
+  let x=r.left+r.width/2-popupEl.offsetWidth/2;
+  let y=r.top-popupEl.offsetHeight-10;
+  if(y<5)y=r.bottom+10;
+  if(x<5)x=5;
+  if(x+popupEl.offsetWidth>window.innerWidth-5)x=window.innerWidth-popupEl.offsetWidth-5;
+  if(y+popupEl.offsetHeight>window.innerHeight-5)y=window.innerHeight-popupEl.offsetHeight-5;
+  popupEl.style.left=x+'px';popupEl.style.top=y+'px';
+}
+function closePopup(){if(popupEl){popupEl.remove();popupEl=null}}
+document.addEventListener('click',(e)=>{
+  if(popupEl&&!popupEl.contains(e.target)&&!e.target.closest('.clickable')){closePopup()}
+});
+
+// ==================== FLOWCHART ====================
+let flowOpen=false;
+function toggleFlowchart(){
+  flowOpen=!flowOpen;
+  const c=document.getElementById('flowContainer');
+  const a=document.getElementById('flowArrow');
+  if(flowOpen){
+    c.classList.add('open');
+    a.textContent='[ CLICK TO HIDE ]';
+  }else{
+    c.classList.remove('open');
+    a.textContent='[ CLICK TO SHOW ]';
+  }
+}
+function flowNodeClick(e,title,desc){
+  e.stopPropagation();
+  showDetailPopup(e,title,desc.split('\n').map(line=>{
+    const parts=line.split(':');
+    if(parts.length>1)return [parts[0].trim(),parts.slice(1).join(':').trim()];
+    return ['INFO',line.trim()];
+  }));
+}
+</script>
+</body>
+</html>

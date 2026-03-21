@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WIFINCE — Teacher Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="scanline"></div>
+
+  <!-- ══ HEADER ══ -->
+  <header class="header">
+    <div class="logo-wrap">
+      <span class="logo-icon">⌬</span>
+      <div>
+        <h1 class="logo">WIFINCE</h1>
+        <p class="subtitle">WiFi Attendance Intelligence System</p>
+      </div>
+    </div>
+
+    <div class="signal">
+      <span class="bar"></span><span class="bar"></span>
+      <span class="bar"></span><span class="bar"></span>
+    </div>
+
+    <div class="header-right">
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+        <span style="font-size:.72rem; color:var(--text-dim);">👨‍🏫 {{ teacher_name }}</span>
+        <a href="/logout" style="font-size:.68rem; color:var(--red); text-decoration:none; border:1px solid rgba(248,113,113,.3); padding:2px 8px; transition:all .2s;"
+           onmouseover="this.style.background='var(--red-lo)'" onmouseout="this.style.background='transparent'">LOGOUT</a>
+      </div>
+      <div class="clock-date" id="clock-date">---</div>
+      <div class="clock-time" id="clock-time">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- ══ HOTSPOT HINT ══ -->
+  <div style="margin:14px 28px; padding:10px 16px; border:1px solid rgba(34,211,238,.3); background:rgba(34,211,238,.06); font-size:.74rem; color:var(--cyan); letter-spacing:.07em; display:flex; align-items:center; gap:10px;">
+    <span>📡</span>
+    <span>Enable your laptop hotspot → Students connect to it → They open
+      <b>http://{{ lan_ip }}:5000/login?role=student</b> → Auto-detected!</span>
+    <button onclick="copyStudentLink()" style="margin-left:auto; background:transparent; border:1px solid var(--cyan); color:var(--cyan); font-family:var(--ff-mono); font-size:.66rem; padding:3px 10px; cursor:pointer; white-space:nowrap;">COPY LINK</button>
+  </div>
+
+  <!-- ══ SESSION SETUP ══ -->
+  <section class="panel-box session-setup">
+    <div class="c tl"></div><div class="c tr"></div>
+    <div class="c bl"></div><div class="c br"></div>
+    <div class="setup-label">⬡ SESSION CONFIGURATION</div>
+    <div class="setup-controls">
+      <div class="ctrl">
+        <label>BRANCH</label>
+        <select id="branch" class="cyber-select">
+          <option value="CSE">CSE</option>
+          <option value="EEE">EEE</option>
+          <option value="ECE">ECE</option>
+          <option value="ME">ME</option>
+          <option value="CE">CE</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label>SEMESTER</label>
+        <select id="semester" class="cyber-select">
+          <option value="1">SEM 1</option><option value="2">SEM 2</option>
+          <option value="3">SEM 3</option><option value="4" selected>SEM 4</option>
+          <option value="5">SEM 5</option><option value="6">SEM 6</option>
+          <option value="7">SEM 7</option><option value="8">SEM 8</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label>SECTION</label>
+        <select id="section" class="cyber-select">
+          <option value="A">A</option><option value="B">B</option><option value="C">C</option>
+          <option value="4A">4A</option><option value="4B" selected>4B</option><option value="4C">4C</option>
+        </select>
+      </div>
+      <button id="start-btn" class="btn-start" onclick="startSession()">▶ START SESSION</button>
+      <button id="stop-btn"  class="btn-start" onclick="stopSession()"
+              style="display:none; border-color:var(--red); color:var(--red);">■ STOP SESSION</button>
+    </div>
+    <div id="session-info" class="session-info" style="display:none">
+      <span class="ibadge">SESSION #<span id="active-session-id">--</span></span>
+      <span class="ibadge green">● ACTIVE</span>
+      <span class="itext" id="session-datetime"></span>
+      <span class="itext" style="color:var(--cyan); font-size:.7rem;">⟳ Auto-scanning every 3s</span>
+    </div>
+  </section>
+
+  <!-- ══ STATS ══ -->
+  <section class="stats-bar" id="stats-bar" style="display:none">
+    <div class="stat-card">
+      <div class="stat-ico">ENROLLED</div>
+      <div class="stat-num" id="stat-total">0</div>
+      <div class="stat-lbl">TOTAL</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-ico">DETECTED</div>
+      <div class="stat-num ng" id="stat-present">0</div>
+      <div class="stat-lbl">PRESENT</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-ico">NOT FOUND</div>
+      <div class="stat-num nr" id="stat-absent">0</div>
+      <div class="stat-lbl">ABSENT</div>
+    </div>
+    <div class="stat-card pk">
+      <div class="stat-ico">RATE</div>
+      <div class="stat-num npk" id="stat-pct">0%</div>
+      <div class="stat-lbl">ATTENDANCE</div>
+    </div>
+  </section>
+
+  <!-- Progress bar -->
+  <div class="prog-wrap" id="prog-wrap" style="display:none">
+    <div class="prog-fill" id="prog-fill"></div>
+    <div class="prog-label">
+      <span id="prog-pct-lbl">0% ATTENDANCE RATE</span>
+      <span class="scan-lbl">⟳ SCANNING NETWORK…</span>
+    </div>
+  </div>
+
+  <!-- ══ MAIN GRID ══ -->
+  <div class="main-grid" id="main-panel" style="display:none">
+    <div class="data-panel gpanel">
+      <div class="ph gph">
+        <span>● PRESENT (WiFi Detected)</span>
+        <span class="ph-count" id="ph-present-count">0</span>
+      </div>
+      <div class="pcols gcols">
+        <span>ROLL NO</span><span>NAME</span><span>TIME</span><span>OUT</span>
+      </div>
+      <div class="slist" id="present-list">
+        <div class="empty-msg">Waiting for students to connect…</div>
+      </div>
+    </div>
+
+    <div class="data-panel rpanel">
+      <div class="ph rph">
+        <span>● ABSENT (Not on Network)</span>
+        <span class="ph-count" id="ph-absent-count">0</span>
+      </div>
+      <div class="pcols rcols">
+        <span>ROLL NO</span><span>NAME</span>
+      </div>
+      <div class="slist" id="absent-list">
+        <div class="empty-msg">All students present ✓</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ BOTTOM BAR ══ -->
+  <div class="bbar" id="bbar" style="display:none">
+    <div class="link-box">
+      <span class="link-lbl">STUDENT LINK:</span>
+      <span class="link-url" id="student-link">http://{{ lan_ip }}:5000/login?role=student</span>
+      <button class="btn-copy" onclick="copyStudentLink()">COPY</button>
+    </div>
+    <div class="exp-btns">
+      <button class="btn-exp"  onclick="exportCSV()">⬇ CSV</button>
+      <button class="btn-exp"  onclick="exportTXT()">⬇ TXT</button>
+      <button class="btn-scan" onclick="fetchLiveData()">↺ SCAN NOW</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/static/script.js"></script>
+  <script>
+    // Pass LAN IP to JS for copy
+    const LAN_IP = "{{ lan_ip }}";
+    function copyStudentLink() {
+      const url = `http://${LAN_IP}:5000/login?role=student`;
+      navigator.clipboard.writeText(url)
+        .then(() => showToast("Student link copied!", "suc"))
+        .catch(() => showToast("Copy: " + url));
+    }
+  </script>
+</body>
+</html>

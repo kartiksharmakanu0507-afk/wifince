@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WIFINCE — Attendance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .s-card {
+      width: 100%; max-width: 420px; text-align: center;
+      background: var(--bg-panel); border: 1px solid var(--border);
+      padding: 36px 28px; backdrop-filter: blur(14px);
+      position: relative;
+    }
+    .s-card .c { border-color: var(--pink); }
+
+    .s-status-icon { font-size: 3.6rem; display: block; margin-bottom: 14px; }
+
+    .s-name {
+      font-family: var(--ff-head); font-size: 1.1rem; font-weight: 700;
+      color: var(--purple-li); letter-spacing: .12em; margin-bottom: 4px;
+    }
+    .s-roll { font-size: .78rem; color: var(--text-dim); margin-bottom: 24px; }
+
+    .s-state {
+      padding: 14px 20px; border: 1px solid var(--border);
+      background: rgba(0,0,0,.3); margin-bottom: 20px;
+    }
+    .s-state.present { border-color: rgba(52,211,153,.5); background: var(--green-lo); }
+    .s-state.absent  { border-color: rgba(248,113,113,.4); background: var(--red-lo); }
+    .s-state.waiting { border-color: rgba(124,58,237,.4); background: var(--purple-lo); }
+
+    .s-state-title {
+      font-family: var(--ff-head); font-size: 1rem; font-weight: 700;
+      letter-spacing: .15em; margin-bottom: 6px;
+    }
+    .s-state.present .s-state-title { color: var(--green); text-shadow: var(--glow-g); }
+    .s-state.absent  .s-state-title { color: var(--red);   text-shadow: var(--glow-r); }
+    .s-state.waiting .s-state-title { color: var(--purple-li); }
+
+    .s-state-sub { font-size: .76rem; color: var(--text-dim); line-height: 1.5; }
+
+    .s-time { font-size: .78rem; color: var(--text-dim); margin-top: 14px; }
+
+    .s-logout {
+      margin-top: 20px; background: transparent;
+      border: 1px solid var(--border); color: var(--text-dim);
+      font-family: var(--ff-mono); font-size: .72rem; padding: 7px 18px;
+      cursor: pointer; letter-spacing: .1em; transition: all .2s;
+    }
+    .s-logout:hover { border-color: var(--red); color: var(--red); }
+
+    /* pulse ring for present */
+    @keyframes ring {
+      0%   { transform: scale(1);   opacity: .6; }
+      100% { transform: scale(1.6); opacity: 0;  }
+    }
+    .ring {
+      position: absolute; width: 80px; height: 80px;
+      border: 2px solid var(--green); border-radius: 50%;
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      animation: ring 1.8s ease-out infinite;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="scanline"></div>
+
+  <div class="s-page">
+
+    <!-- Logo -->
+    <div class="s-logo">
+      <span class="logo-icon">⌬</span>
+      <h1 class="logo">WIFINCE</h1>
+      <p class="subtitle">WiFi Attendance Intelligence System</p>
+    </div>
+
+    <!-- Card -->
+    <div class="s-card panel-box">
+      <div class="c tl"></div><div class="c tr"></div>
+      <div class="c bl"></div><div class="c br"></div>
+
+      <!-- Student name & roll -->
+      <div class="s-name">{{ student_name }}</div>
+      <div class="s-roll">{{ student_roll }}</div>
+
+      {% if session_active %}
+
+        {% if already_present %}
+          <!-- Already present -->
+          <div style="position:relative; display:inline-block; margin-bottom:14px;">
+            <span class="s-status-icon" style="color:var(--green); text-shadow:var(--glow-g);">✓</span>
+            <div class="ring"></div>
+          </div>
+          <div class="s-state present">
+            <div class="s-state-title">ALREADY MARKED PRESENT</div>
+            <div class="s-state-sub">Your attendance is recorded for this session.</div>
+          </div>
+
+        {% else %}
+          <!-- Just marked present -->
+          <div style="position:relative; display:inline-block; margin-bottom:14px;">
+            <span class="s-status-icon" style="color:var(--green); text-shadow:var(--glow-g);">✓</span>
+            <div class="ring"></div>
+          </div>
+          <div class="s-state present">
+            <div class="s-state-title">ATTENDANCE MARKED!</div>
+            <div class="s-state-sub">
+              Your device has been detected on the network.<br>
+              You can close this page.
+            </div>
+          </div>
+        {% endif %}
+
+      {% else %}
+        <!-- No active session -->
+        <span class="s-status-icon" style="color:var(--purple-li);">⏳</span>
+        <div class="s-state waiting">
+          <div class="s-state-title">SESSION NOT STARTED</div>
+          <div class="s-state-sub">
+            Waiting for teacher to start the session.<br>
+            Stay connected to the WiFi — you'll be auto-detected.
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="s-time" id="live-time"></div>
+
+      <button class="s-logout" onclick="window.location.href='/logout'">↩ LOGOUT</button>
+    </div>
+
+  </div>
+
+  <script>
+    // Live clock
+    function tick() {
+      const now = new Date();
+      const t   = now.toLocaleTimeString();
+      const d   = now.toLocaleDateString("en-IN", {weekday:"short", day:"2-digit", month:"short", year:"numeric"});
+      document.getElementById("live-time").textContent = d + "  " + t;
+    }
+    setInterval(tick, 1000); tick();
+
+    // If session not yet active, auto-refresh every 5s to check
+    {% if not session_active %}
+    setTimeout(() => location.reload(), 5000);
+    {% endif %}
+  </script>
+
+</body>
+</html>
