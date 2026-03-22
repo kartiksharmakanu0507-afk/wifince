@@ -10,6 +10,8 @@ import os
 import csv
 import io
 import socket
+import random
+import time
 from datetime import datetime
 from functools import wraps
 
@@ -22,6 +24,22 @@ from seed     import seed_all
 
 app = Flask(__name__)
 app.secret_key = "wifince-secret-2024-xk9"   # change in production
+
+# ─── 30-SECOND ATTENDANCE CODE ──────────────────────────────────────────────
+attendance_code = {"code": "0000", "generated_at": 0}
+
+def generate_new_code():
+    attendance_code["code"] = str(random.randint(1000, 9999))
+    attendance_code["generated_at"] = time.time()
+
+def get_current_code():
+    if time.time() - attendance_code["generated_at"] > 30:
+        generate_new_code()
+    return attendance_code["code"]
+
+def is_code_valid(code):
+    current = get_current_code()
+    return code == current
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -89,6 +107,7 @@ def login():
 
     elif role == "student":
         roll = data.get("roll", "").strip().upper()
+        code = data.get("code", "").strip()
         conn = get_db()
         student = conn.execute(
             "SELECT * FROM students WHERE roll=?", (roll,)
@@ -96,6 +115,10 @@ def login():
         conn.close()
         if not student:
             return jsonify({"success": False, "error": "Roll number not found"}), 404
+        if not code:
+            return jsonify({"success": False, "error": "Enter the attendance code from teacher's screen"}), 400
+        if not is_code_valid(code):
+            return jsonify({"success": False, "error": "Invalid or expired code. Check teacher's screen."}), 400
         # Store in session so student page knows who they are
         session["student_id"]   = student["id"]
         session["student_roll"] = student["roll"]
@@ -402,6 +425,125 @@ def export_txt(session_id):
     resp.headers["Content-Type"]        = "text/plain"
     resp.headers["Content-Disposition"] = f"attachment; filename=attendance_{session_id}.txt"
     return resp
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# API — MANAGE STUDENTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/students", methods=["GET"])
+@teacher_required
+def list_students():
+    conn = get_db()
+    students = conn.execute(
+        "SELECT id, name, roll, branch, section, semester FROM students ORDER BY roll"
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(s) for s in students])
+
+
+@app.route("/api/students", methods=["POST"])
+@teacher_required
+def add_student():
+    data = request.get_json(force=True)
+    name     = data.get("name", "").strip()
+    roll     = data.get("roll", "").strip().upper()
+    branch   = data.get("branch", "").strip().upper()
+    section  = data.get("section", "").strip().upper()
+    semester = data.get("semester")
+
+    if not all([name, roll, branch, section, semester]):
+        return jsonify({"error": "All fields required"}), 400
+
+    conn = get_db()
+    exists = conn.execute("SELECT id FROM students WHERE roll=?", (roll,)).fetchone()
+    if exists:
+        conn.close()
+        return jsonify({"error": f"Roll {roll} already exists"}), 409
+
+    conn.execute(
+        "INSERT INTO students (name, roll, branch, section, semester) VALUES (?,?,?,?,?)",
+        (name, roll, branch, section, int(semester))
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": f"{name} ({roll}) added"})
+
+
+@app.route("/api/students/<int:student_id>", methods=["DELETE"])
+@teacher_required
+def delete_student(student_id):
+    conn = get_db()
+    conn.execute("DELETE FROM attendance_records WHERE student_id=?", (student_id,))
+    conn.execute("DELETE FROM students WHERE id=?", (student_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+
+@app.route("/api/students/csv", methods=["POST"])
+@teacher_required
+def upload_csv():
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    try:
+        content = file.read().decode("utf-8")
+        reader = csv.DictReader(io.StringIO(content))
+        conn = get_db()
+        added = 0
+        skipped = 0
+        for row in reader:
+            name     = row.get("name", "").strip()
+            roll     = row.get("roll", "").strip().upper()
+            branch   = row.get("branch", "").strip().upper()
+            section  = row.get("section", "").strip().upper()
+            semester = row.get("semester", "").strip()
+
+            if not all([name, roll, branch, section, semester]):
+                skipped += 1
+                continue
+
+            exists = conn.execute("SELECT id FROM students WHERE roll=?", (roll,)).fetchone()
+            if exists:
+                skipped += 1
+                continue
+
+            conn.execute(
+                "INSERT INTO students (name, roll, branch, section, semester) VALUES (?,?,?,?,?)",
+                (name, roll, branch, section, int(semester))
+            )
+            added += 1
+
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "added": added, "skipped": skipped})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# API — ATTENDANCE CODE (30-sec rotating)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/attendance-code")
+@teacher_required
+def get_attendance_code():
+    code = get_current_code()
+    remaining = max(0, 30 - int(time.time() - attendance_code["generated_at"]))
+    return jsonify({"code": code, "remaining": remaining})
+
+
+@app.route("/api/verify-code", methods=["POST"])
+def verify_attendance_code():
+    data = request.get_json(force=True)
+    code = data.get("code", "").strip()
+    if not code:
+        return jsonify({"valid": False, "error": "Enter the code"}), 400
+    if is_code_valid(code):
+        return jsonify({"valid": True})
+    return jsonify({"valid": False, "error": "Invalid or expired code"}), 400
 
 
 # ─────────────────────────────────────────────────────────────────────────────

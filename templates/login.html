@@ -130,14 +130,22 @@
         <label>YOUR ROLL NUMBER</label>
         <input type="text" id="student-roll" class="cyan" placeholder="JIETCSE088"
                autocomplete="off" style="text-transform:uppercase"
-               oninput="this.value=this.value.toUpperCase()"
+               oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="field">
+        <label>ATTENDANCE CODE (from teacher's screen)</label>
+        <input type="text" id="student-code" class="cyan" placeholder="4-digit code"
+               autocomplete="off" maxlength="4" style="text-align:center; font-size:1.4rem; letter-spacing:.3em;"
+               oninput="this.value=this.value.replace(/\D/g,'')"
                onkeydown="if(event.key==='Enter') studentLogin()">
       </div>
       <button class="btn-login cyan-btn" onclick="studentLogin()">▶ MARK MY ATTENDANCE</button>
       <div class="err-msg" id="student-err"></div>
       <div class="hint-box cyan">
-        Make sure you are connected to the <b>teacher's hotspot</b>.<br>
-        Enter your roll number — your device will be auto-detected.
+        1. Connect to the <b>teacher's hotspot</b><br>
+        2. Enter your <b>roll number</b><br>
+        3. Enter the <b>4-digit code</b> shown on teacher's screen<br>
+        <span style="color:rgba(34,211,238,.6); font-size:.65rem;">Code changes every 30 seconds — be quick!</span>
       </div>
     </div>
   </div>
@@ -185,22 +193,24 @@
 
     async function studentLogin() {
       const roll = document.getElementById("student-roll").value.trim().toUpperCase();
+      const code = document.getElementById("student-code").value.trim();
       const err  = document.getElementById("student-err");
       err.textContent = "";
       if (!roll) { err.textContent = "Enter your roll number."; return; }
+      if (!code || code.length !== 4) { err.textContent = "Enter the 4-digit code from teacher's screen."; return; }
 
       const btn = document.querySelector("#card-student .btn-login");
-      btn.textContent = "DETECTING…"; btn.disabled = true;
+      btn.textContent = "VERIFYING…"; btn.disabled = true;
 
       try {
         const res  = await fetch("/login", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({role: "student", roll})
+          body: JSON.stringify({role: "student", roll, code})
         });
         const data = await res.json();
         if (data.success) { window.location.href = data.redirect; }
-        else { err.textContent = data.error || "Roll number not found."; btn.textContent = "▶ MARK MY ATTENDANCE"; btn.disabled = false; }
+        else { err.textContent = data.error || "Verification failed."; btn.textContent = "▶ MARK MY ATTENDANCE"; btn.disabled = false; }
       } catch(e) {
         err.textContent = "Network error.";
         btn.textContent = "▶ MARK MY ATTENDANCE"; btn.disabled = false;

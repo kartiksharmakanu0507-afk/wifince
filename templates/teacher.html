@@ -92,6 +92,66 @@
     </div>
   </section>
 
+  <!-- ══ ATTENDANCE CODE ══ -->
+  <div id="code-panel" style="display:none; margin:14px 28px; padding:16px 22px; border:1px solid rgba(217,70,239,.4); background:rgba(217,70,239,.08); backdrop-filter:blur(12px); text-align:center;">
+    <div style="font-size:.66rem; letter-spacing:.22em; color:var(--pink); text-shadow:0 0 6px var(--pink); margin-bottom:8px;">⬡ ATTENDANCE CODE — SHOW THIS TO STUDENTS</div>
+    <div id="att-code" style="font-family:var(--ff-head); font-size:4rem; font-weight:900; color:#fff; text-shadow:0 0 10px var(--pink), 0 0 30px var(--purple), 0 0 60px var(--purple); letter-spacing:.4em;">----</div>
+    <div style="margin-top:8px;">
+      <span style="font-size:.72rem; color:var(--text-dim);">Expires in </span>
+      <span id="code-timer" style="font-family:var(--ff-head); font-size:1rem; color:var(--cyan); text-shadow:var(--glow-c);">30s</span>
+    </div>
+    <div style="margin-top:6px; font-size:.62rem; color:var(--text-dim); letter-spacing:.1em;">Students must enter this code to mark attendance. Code changes every 30 seconds.</div>
+  </div>
+
+  <!-- ══ MANAGE STUDENTS ══ -->
+  <section class="panel-box" style="margin:14px 28px; padding:18px 22px;">
+    <div class="c tl"></div><div class="c tr"></div>
+    <div class="c bl"></div><div class="c br"></div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; cursor:pointer;" onclick="toggleManageStudents()">
+      <div class="setup-label" style="margin-bottom:0;">⬡ MANAGE STUDENTS</div>
+      <span id="manage-toggle" style="color:var(--pink); font-size:1.2rem; transition:transform .2s;">▸</span>
+    </div>
+
+    <div id="manage-panel" style="display:none;">
+      <!-- Add single student -->
+      <div style="border:1px solid var(--border); padding:14px; margin-bottom:14px; background:rgba(0,0,0,.2);">
+        <div style="font-size:.66rem; letter-spacing:.15em; color:var(--text-dim); margin-bottom:10px;">ADD SINGLE STUDENT</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+          <div class="ctrl"><label>NAME</label><input id="s-name" class="cyber-select" placeholder="Kartik Sharma" style="min-width:140px;"></div>
+          <div class="ctrl"><label>ROLL NO</label><input id="s-roll" class="cyber-select" placeholder="JIETCSE088" style="min-width:120px; text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()"></div>
+          <div class="ctrl"><label>BRANCH</label><input id="s-branch" class="cyber-select" placeholder="CSE" style="min-width:70px; text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()"></div>
+          <div class="ctrl"><label>SECTION</label><input id="s-section" class="cyber-select" placeholder="4B" style="min-width:60px; text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()"></div>
+          <div class="ctrl"><label>SEM</label><input id="s-sem" class="cyber-select" type="number" placeholder="4" style="min-width:50px;"></div>
+          <button class="btn-start" onclick="addStudent()">+ ADD</button>
+        </div>
+        <div id="add-msg" style="font-size:.72rem; margin-top:8px; min-height:18px;"></div>
+      </div>
+
+      <!-- CSV Upload -->
+      <div style="border:1px solid var(--border); padding:14px; margin-bottom:14px; background:rgba(0,0,0,.2);">
+        <div style="font-size:.66rem; letter-spacing:.15em; color:var(--text-dim); margin-bottom:10px;">BULK UPLOAD (CSV)</div>
+        <div style="font-size:.68rem; color:var(--text-dim); margin-bottom:10px; line-height:1.5;">
+          CSV format: <span style="color:var(--cyan);">name, roll, branch, section, semester</span><br>
+          First row must be headers.
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="file" id="csv-file" accept=".csv" style="font-family:var(--ff-mono); font-size:.78rem; color:var(--text);">
+          <button class="btn-start" onclick="uploadCSV()">⬆ UPLOAD</button>
+        </div>
+        <div id="csv-msg" style="font-size:.72rem; margin-top:8px; min-height:18px;"></div>
+      </div>
+
+      <!-- Student list -->
+      <div style="border:1px solid var(--border); background:rgba(0,0,0,.2); max-height:400px; overflow-y:auto;">
+        <div style="display:grid; grid-template-columns:120px 1fr 80px 60px 50px 40px; padding:8px 14px; font-size:.6rem; letter-spacing:.1em; color:var(--text-dim); border-bottom:1px solid var(--border); background:rgba(0,0,0,.3);">
+          <span>ROLL</span><span>NAME</span><span>BRANCH</span><span>SEC</span><span>SEM</span><span></span>
+        </div>
+        <div id="student-list"><div class="empty-msg">Loading...</div></div>
+      </div>
+      <div style="margin-top:8px; font-size:.68rem; color:var(--text-dim);">Total: <span id="student-count">0</span> students</div>
+    </div>
+  </section>
+
   <!-- ══ STATS ══ -->
   <section class="stats-bar" id="stats-bar" style="display:none">
     <div class="stat-card">
@@ -179,6 +239,134 @@
         .then(() => showToast("Student link copied!", "suc"))
         .catch(() => showToast("Copy: " + url));
     }
+
+    // ─── MANAGE STUDENTS ────────────────────────────
+    function toggleManageStudents() {
+      const panel = document.getElementById("manage-panel");
+      const arrow = document.getElementById("manage-toggle");
+      if (panel.style.display === "none") {
+        panel.style.display = "block";
+        arrow.textContent = "▾";
+        loadStudents();
+      } else {
+        panel.style.display = "none";
+        arrow.textContent = "▸";
+      }
+    }
+
+    async function loadStudents() {
+      try {
+        const res = await fetch("/api/students");
+        const students = await res.json();
+        const list = document.getElementById("student-list");
+        document.getElementById("student-count").textContent = students.length;
+        if (students.length === 0) {
+          list.innerHTML = '<div class="empty-msg">No students yet. Add manually or upload CSV.</div>';
+          return;
+        }
+        list.innerHTML = students.map(s => `
+          <div style="display:grid; grid-template-columns:120px 1fr 80px 60px 50px 40px; padding:8px 14px; border-bottom:1px solid rgba(124,58,237,.08); font-size:.82rem; align-items:center;">
+            <span style="color:var(--purple-li); font-size:.72rem;">${s.roll}</span>
+            <span>${s.name}</span>
+            <span style="font-size:.7rem; color:var(--text-dim);">${s.branch}</span>
+            <span style="font-size:.7rem; color:var(--text-dim);">${s.section}</span>
+            <span style="font-size:.7rem; color:var(--text-dim);">${s.semester}</span>
+            <button onclick="deleteStudent(${s.id})" style="background:transparent; border:1px solid rgba(248,113,113,.35); color:var(--red); width:26px; height:26px; border-radius:3px; cursor:pointer; font-size:.7rem; display:flex; align-items:center; justify-content:center;" title="Delete">✕</button>
+          </div>
+        `).join("");
+      } catch(e) { console.error(e); }
+    }
+
+    async function addStudent() {
+      const name = document.getElementById("s-name").value.trim();
+      const roll = document.getElementById("s-roll").value.trim().toUpperCase();
+      const branch = document.getElementById("s-branch").value.trim().toUpperCase();
+      const section = document.getElementById("s-section").value.trim().toUpperCase();
+      const semester = document.getElementById("s-sem").value.trim();
+      const msg = document.getElementById("add-msg");
+
+      if (!name || !roll || !branch || !section || !semester) {
+        msg.innerHTML = '<span style="color:var(--red);">Fill all fields.</span>';
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/students", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({name, roll, branch, section, semester: parseInt(semester)})
+        });
+        const data = await res.json();
+        if (data.success) {
+          msg.innerHTML = `<span style="color:var(--green);">${data.message}</span>`;
+          document.getElementById("s-name").value = "";
+          document.getElementById("s-roll").value = "";
+          loadStudents();
+        } else {
+          msg.innerHTML = `<span style="color:var(--red);">${data.error}</span>`;
+        }
+      } catch(e) { msg.innerHTML = '<span style="color:var(--red);">Network error</span>'; }
+    }
+
+    async function deleteStudent(id) {
+      if (!confirm("Delete this student?")) return;
+      try {
+        await fetch(`/api/students/${id}`, {method: "DELETE"});
+        loadStudents();
+        showToast("Student removed", "");
+      } catch(e) { showToast("Failed to delete", "err"); }
+    }
+
+    async function uploadCSV() {
+      const file = document.getElementById("csv-file").files[0];
+      const msg = document.getElementById("csv-msg");
+      if (!file) { msg.innerHTML = '<span style="color:var(--red);">Select a CSV file first.</span>'; return; }
+
+      const form = new FormData();
+      form.append("file", file);
+
+      try {
+        const res = await fetch("/api/students/csv", {method: "POST", body: form});
+        const data = await res.json();
+        if (data.success) {
+          msg.innerHTML = `<span style="color:var(--green);">Added: ${data.added} | Skipped: ${data.skipped}</span>`;
+          loadStudents();
+        } else {
+          msg.innerHTML = `<span style="color:var(--red);">${data.error}</span>`;
+        }
+      } catch(e) { msg.innerHTML = '<span style="color:var(--red);">Upload failed</span>'; }
+    }
+
+    // ─── ATTENDANCE CODE ─────────────────────────────
+    let codeInterval = null;
+
+    async function fetchAttendanceCode() {
+      try {
+        const res = await fetch("/api/attendance-code");
+        const data = await res.json();
+        document.getElementById("att-code").textContent = data.code;
+        document.getElementById("code-timer").textContent = data.remaining + "s";
+      } catch(e) { console.error(e); }
+    }
+
+    // Show code panel when session starts
+    const origStartSession = startSession;
+    startSession = async function() {
+      await origStartSession();
+      if (sessionId) {
+        document.getElementById("code-panel").style.display = "";
+        fetchAttendanceCode();
+        if (codeInterval) clearInterval(codeInterval);
+        codeInterval = setInterval(fetchAttendanceCode, 2000);
+      }
+    };
+
+    const origStopSession = stopSession;
+    stopSession = async function() {
+      await origStopSession();
+      document.getElementById("code-panel").style.display = "none";
+      if (codeInterval) clearInterval(codeInterval);
+    };
   </script>
 </body>
 </html>
